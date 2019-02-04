@@ -26,7 +26,7 @@ firefox python/package/docs/build/html/index.html
 The documentation is also setup at `readthedocs.io`.
 
 Documentation links:
-* http://streamsxobjectstorage.readthedocs.io/en/pypackage
+* http://streamsxobjectstorage.readthedocs.io/
 
 ## Test
 
