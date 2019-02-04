@@ -4,9 +4,9 @@ This is a step in allowing natural use of Streams for a Python developer. A proj
 This exposes SPL operators in the `com.ibm.streamsx.objectstorage` toolkit as Python methods.
 
 Package is organized using standard packaging to upload to PyPi.
-
-* https://pypi.org/project/streamsx.objectstorage/
+* [https://pypi.org/project/streamsx.objectstorage/](https://pypi.org/project/streamsx.objectstorage/)
 
 Documentation links:
-* http://streamsxobjectstorage.readthedocs.io/
+* [http://streamsxobjectstorage.readthedocs.io/](http://streamsxobjectstorage.readthedocs.io/)
+
 
