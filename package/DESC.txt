@@ -43,4 +43,4 @@ an object. Scan for created object on COS and read the content::
 Documentation
 =============
 
-* `streamsx.objectstorage package documentation <http://streamsxobjectstorage.readthedocs.io/en/pypackage/>`_
+* `streamsx.objectstorage package documentation <http://streamsxobjectstorage.readthedocs.io/>`_

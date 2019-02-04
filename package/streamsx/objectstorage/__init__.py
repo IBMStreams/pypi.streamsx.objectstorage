@@ -84,7 +84,7 @@ an object. Scan for created object on COS and read the content::
 
 """
 
-__version__='1.0.0'
+__version__='1.0.2'
 
 __all__ = ['write_parquet', 'scan', 'read', 'write']
 from streamsx.objectstorage._objectstorage import write_parquet, scan, read, write
