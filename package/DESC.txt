@@ -4,7 +4,14 @@ Overview
 Provides functions to read objects from Cloud Object Storage as a stream
 and submit tuples to create objects in Cloud Object Storage (COS).
 
+This package exposes the `com.ibm.streamsx.objectstorage <https://ibmstreams.github.io/streamsx.objectstorage/>`_ toolkit as Python methods for use with Streaming Analytics service on
+IBM Cloud and IBM Streams including IBM Cloud Private for Data.
+
 `IBM Cloud Object Storage <https://www.ibm.com/cloud/object-storage>`_ makes it possible to store practically limitless amounts of data, simply and cost effectively. It is commonly used for data archiving and backup, web and mobile applications, and as scalable, persistent storage for analytics.
+
+* `Streaming Analytics service <https://console.ng.bluemix.net/catalog/services/streaming-analytics>`_
+* `IBM Streams developer community <https://developer.ibm.com/streamsdev/>`_
+* `IBM Cloud Object Storage <https://console.bluemix.net/docs/services/cloud-object-storage/getting-started.html>`_
 
 Sample
 ======
@@ -39,6 +46,8 @@ an object. Scan for created object on COS and read the content::
     r.print()
 
     submit('STREAMING_ANALYTICS_SERVICE', topo)
+    # Use for IBM Streams including IBM Cloud Private for Data
+    # submit ('DISTRIBUTED', topo)
 
 Documentation
 =============

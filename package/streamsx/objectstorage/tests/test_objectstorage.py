@@ -1,16 +1,16 @@
 from unittest import TestCase
 
 import streamsx.objectstorage as objectstorage
-import os
 
 from streamsx.topology.topology import Topology
 from streamsx.topology.tester import Tester
 from streamsx.topology.schema import CommonSchema, StreamSchema
+import streamsx.spl.op as op
+import streamsx.spl.toolkit
 import streamsx.rest as sr
-
+import os
 import datetime
 import time
-import uuid
 import json
 
 ##
@@ -46,37 +46,21 @@ class TestParams(TestCase):
         self.assertRaises(ValueError, objectstorage.write, to_cos, 'streams-bucket', 's3.private.us-south.cloud-object-storage.appdomain.cloud', 'test%OBJECTNUM.parquet', datetime.timedelta(milliseconds=100))
         self.assertRaises(ValueError, objectstorage.write, to_cos, 'streams-bucket', 's3.private.us-south.cloud-object-storage.appdomain.cloud', 'test%OBJECTNUM.parquet', 0.9)
 
-class StringData(object):
-    def __init__(self, prefix, count, delay=True):
-        self.prefix = prefix
-        self.count = count
-        self.delay = delay
-    def __call__(self):
-        if self.delay:
-            time.sleep(5)
-        for i in range(self.count):
-            yield self.prefix + '_' + str(i)
 
 class TestCOS(TestCase):
 
     @classmethod
     def setUpClass(self):
-        # start streams service
-        connection = sr.StreamingAnalyticsConnection()
-        service = connection.get_streaming_analytics()
-        result = service.start_instance()
-
-    def setUp(self):
-        Tester.setup_streaming_analytics(self, force_remote_build=True)
         self.bucket = os.environ["COS_BUCKET"]
-        self.endpoint='s3.private.us-south.cloud-object-storage.appdomain.cloud'
+        self.endpoint=os.environ["COS_ENDPOINT"]
 
     def test_parquet(self):
-        n = 5000
         topo = Topology()
-        uid = str(uuid.uuid4())
-        s = topo.source(StringData(uid, n)).as_string()
-        objectstorage.write_parquet(s, self.bucket, self.endpoint, 'test%OBJECTNUM.parquet', time_per_object=5)
+        if self.objectstorage_toolkit_home is not None:
+            streamsx.spl.toolkit.add_toolkit(topo, self.objectstorage_toolkit_home)
+        to_cos = topo.source(['Hello', 'World!'])
+        to_cos = to_cos.as_string()
+        objectstorage.write_parquet(to_cos, self.bucket, self.endpoint, 'test%OBJECTNUM.parquet', time_per_object=5)
         
         scanned_objects = objectstorage.scan(topo, self.bucket, self.endpoint, 'test0.parquet')
         scanned_objects.print()
@@ -87,11 +71,12 @@ class TestCOS(TestCase):
         tester.test(self.test_ctxtype, self.test_config, always_collect_logs=True)
 
     def test_string(self):
-        n = 5000
         topo = Topology()
-        uid = str(uuid.uuid4())
-        s = topo.source(StringData(uid, n)).as_string()
-        objectstorage.write(s, self.bucket, self.endpoint, 'test%OBJECTNUM.txt')
+        if self.objectstorage_toolkit_home is not None:
+            streamsx.spl.toolkit.add_toolkit(topo, self.objectstorage_toolkit_home)
+        to_cos = topo.source(['Hello', 'World!'])
+        to_cos = to_cos.as_string()
+        objectstorage.write(to_cos, self.bucket, self.endpoint, 'test%OBJECTNUM.txt')
         
         scanned_objects = objectstorage.scan(topo, bucket=self.bucket, endpoint=self.endpoint, pattern='test0.txt')
         scanned_objects.print()
@@ -102,11 +87,12 @@ class TestCOS(TestCase):
         tester.test(self.test_ctxtype, self.test_config, always_collect_logs=True)   
 
     def test_string_header(self):
-        n = 5000
         topo = Topology()
-        uid = str(uuid.uuid4())
-        s = topo.source(StringData(uid, n)).as_string()
-        objectstorage.write(s, self.bucket, self.endpoint, 'test%OBJECTNUM.txt', header="TEST_HEADER_ROW")
+        if self.objectstorage_toolkit_home is not None:
+            streamsx.spl.toolkit.add_toolkit(topo, self.objectstorage_toolkit_home)
+        to_cos = topo.source(['Hello', 'World!'])
+        to_cos = to_cos.as_string()
+        objectstorage.write(to_cos, self.bucket, self.endpoint, 'test%OBJECTNUM.txt', header="TEST_HEADER_ROW")
         
         scanned_objects = objectstorage.scan(topo, bucket=self.bucket, endpoint=self.endpoint, pattern='test0.txt')
         scanned_objects.print()
@@ -117,11 +103,12 @@ class TestCOS(TestCase):
         tester.test(self.test_ctxtype, self.test_config, always_collect_logs=True)  
 
     def test_timedelta(self):
-        n = 5000
         topo = Topology()
-        uid = str(uuid.uuid4())
-        s = topo.source(StringData(uid, n)).as_string()
-        objectstorage.write(s, self.bucket, self.endpoint, object='test%OBJECTNUM.time', time_per_object=datetime.timedelta(minutes=1))
+        if self.objectstorage_toolkit_home is not None:
+            streamsx.spl.toolkit.add_toolkit(topo, self.objectstorage_toolkit_home)
+        to_cos = topo.source(['Hello', 'World!'])
+        to_cos = to_cos.as_string()
+        objectstorage.write(to_cos, self.bucket, self.endpoint, object='test%OBJECTNUM.time', time_per_object=datetime.timedelta(minutes=1))
         
         scanned_objects = objectstorage.scan(topo, bucket=self.bucket, endpoint=self.endpoint, pattern='test0.time')
         scanned_objects.print()
@@ -133,6 +120,8 @@ class TestCOS(TestCase):
 
     def test_hello_world(self):
         topo = Topology('ObjectStorageHelloWorld')
+        if self.objectstorage_toolkit_home is not None:
+            streamsx.spl.toolkit.add_toolkit(topo, self.objectstorage_toolkit_home)
         to_cos = topo.source(['Hello', 'World!'])
         to_cos = to_cos.as_string()
         objectstorage.write(to_cos, self.bucket, self.endpoint, '/sample/hw%OBJECTNUM.txt')
@@ -153,6 +142,8 @@ class TestCOS(TestCase):
             credentials = json.load(data_file)
 
         topo = Topology('ObjectStorageHelloWorldWithCreds')
+        if self.objectstorage_toolkit_home is not None:
+            streamsx.spl.toolkit.add_toolkit(topo, self.objectstorage_toolkit_home)
         to_cos = topo.source(['Hello', 'World!'])
         to_cos = to_cos.as_string()
         objectstorage.write(to_cos, self.bucket, self.endpoint, '/c/hw_%OBJECTNUM.txt', credentials=credentials)
@@ -165,4 +156,42 @@ class TestCOS(TestCase):
         tester.run_for(60)
         tester.tuple_count(r, 2, exact=True) # expect two lines 1:hello 2:World!
         tester.test(self.test_ctxtype, self.test_config, always_collect_logs=True) 
+
+class TestDistributed(TestCOS):
+
+    @classmethod
+    def setUpClass(self):
+        super().setUpClass()
+
+    def setUp(self):
+        Tester.setup_distributed(self)
+        self.objectstorage_toolkit_home = os.environ["COS_TOOLKIT_HOME"]
+        self.test_config[streamsx.topology.context.ConfigParams.SSL_VERIFY] = False  
+
+
+class TestStreamingAnalytics(TestCOS):
+
+    @classmethod
+    def setUpClass(self):
+        # start streams service
+        connection = sr.StreamingAnalyticsConnection()
+        service = connection.get_streaming_analytics()
+        result = service.start_instance()
+        super().setUpClass()
+
+    def setUp(self):
+        Tester.setup_streaming_analytics(self, force_remote_build=False)
+        self.objectstorage_toolkit_home = os.environ["COS_TOOLKIT_HOME"]
+
+
+class TestStreamingAnalyticsRemote(TestStreamingAnalytics):
+
+    @classmethod
+    def setUpClass(self):
+        super().setUpClass()
+
+    def setUp(self):
+        Tester.setup_streaming_analytics(self, force_remote_build=True)
+        self.objectstorage_toolkit_home = None
+
 
