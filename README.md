@@ -18,6 +18,11 @@ Documentation is using Sphinx and can be built locally using:
 cd package/docs
 make html
 ```
+
+or
+
+    ant doc
+
 and viewed using
 ```
 firefox python/package/docs/build/html/index.html
