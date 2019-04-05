@@ -169,6 +169,17 @@ class TestDistributed(TestCOS):
         self.test_config[streamsx.topology.context.ConfigParams.SSL_VERIFY] = False  
 
 
+class TestICPRemote(TestCOS):
+
+    @classmethod
+    def setUpClass(self):
+        super().setUpClass()
+
+    def setUp(self):
+        Tester.setup_distributed(self)
+        self.objectstorage_toolkit_home = None
+        self.test_config[streamsx.topology.context.ConfigParams.SSL_VERIFY] = False 
+
 class TestStreamingAnalytics(TestCOS):
 
     @classmethod
