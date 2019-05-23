@@ -8,6 +8,59 @@ import streamsx.spl.op
 import streamsx.spl.types
 from streamsx.topology.schema import CommonSchema, StreamSchema
 from streamsx.spl.types import rstring
+import json
+
+def configure_connection(instance, name='cos', credentials=None):
+    """Configures IBM Streams for a certain connection.
+
+
+    Creates an application configuration object containing the required properties with connection information.
+
+
+    Example for creating a configuration for a Streams instance with connection details::
+
+
+        streamsx.rest import Instance
+        import streamsx.topology.context
+        from icpd_core import icpd_util
+        import streamsx.objectstorage as cos
+
+        cfg = icpd_util.get_service_instance_details(name='your-streams-instance')
+        cfg[streamsx.topology.context.ConfigParams.SSL_VERIFY] = False
+        instance = Instance.of_service(cfg)
+        app_cfg = cos.configure_connection(instance, credentials='my_credentials_json')
+
+
+    Args:
+        instance(streamsx.rest_primitives.Instance): IBM Streams instance object.
+        name(str): Name of the application configuration, default name is 'cos'.
+        credentials(str|dict): The service credentials for IBM Cloud Object Storage.
+    Returns:
+        Name of the application configuration.
+
+    .. warning:: The function can be used only in IBM Cloud Private for Data
+    .. versionadded:: 1.1
+    """
+
+    description = 'COS credentials'
+    properties = {}
+    if credentials is None:
+        raise TypeError(credentials)
+
+    if isinstance(credentials, dict):
+        properties['cos.creds'] = json.dumps(credentials)
+    else:
+        properties['cos.creds'] = credentials
+
+    # check if application configuration exists
+    app_config = instance.get_application_configurations(name=name)
+    if app_config:
+        print('update application configuration: ' + name)
+        app_config[0].update(properties)
+    else:
+        print('create application configuration: ' + name)
+        instance.create_application_configuration(name, properties, description)
+    return name
 
 
 def scan(topology, bucket, endpoint, pattern='.*', directory='/', credentials=None, vm_arg=None, name=None):
@@ -54,6 +107,12 @@ def read(stream, bucket, endpoint, credentials=None, vm_arg=None, name=None):
     """Read an object in a bucket.
 
     Reads the object specified in the input stream and emits content of the object.
+
+    Example of reading object with the objects names from the ``scanned`` stream::
+
+        import streamsx.objectstorage as cos
+
+        r = cos.read(scanned, bucket=bucket, endpoint=endpoint)
 
     Args:
         stream(Stream): Stream of tuples with object names to be read. Expects ``CommonSchema.String`` in the input stream.
@@ -108,6 +167,13 @@ def write(stream, bucket, endpoint, object, time_per_object=10.0, header=None, c
 
     Adds a COS-Writer where each tuple on `stream` is
     written into an object.
+
+    Example of creating an object with two lines::
+
+        import streamsx.objectstorage as cos
+        to_cos = topo.source(['Hello', 'World!'])
+        to_cos = to_cos.as_string()
+        cos.write(to_cos, self.bucket, self.endpoint, '/sample/hw%OBJECTNUM.txt')
 
     Args:
         stream(Stream): Stream of tuples to be written to an object. Expects ``CommonSchema.String`` in the input stream.
