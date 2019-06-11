@@ -81,12 +81,12 @@ an object. Scan for created object on COS and read the content::
     r.print()
 
     submit('STREAMING_ANALYTICS_SERVICE', topo)
-    # Use for IBM Streams including IBM Cloud Private for Data
+    # Use for IBM Streams including IBM Cloud Pak for Data
     # submit ('DISTRIBUTED', topo)
 
 """
 
-__version__='1.1.1'
+__version__='1.1.2'
 
 __all__ = ['write_parquet', 'scan', 'read', 'write', 'configure_connection']
 from streamsx.objectstorage._objectstorage import write_parquet, scan, read, write, configure_connection
