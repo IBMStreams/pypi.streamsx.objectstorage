@@ -5,7 +5,7 @@ Provides functions to read objects from Cloud Object Storage as a stream
 and submit tuples to create objects in Cloud Object Storage (COS).
 
 This package exposes the `com.ibm.streamsx.objectstorage <https://ibmstreams.github.io/streamsx.objectstorage/>`_ toolkit as Python methods for use with Streaming Analytics service on
-IBM Cloud and IBM Streams including IBM Cloud Private for Data.
+IBM Cloud and IBM Streams including IBM Cloud Pak for Data.
 
 * `Streaming Analytics service <https://console.ng.bluemix.net/catalog/services/streaming-analytics>`_
 * `IBM Streams developer community <https://developer.ibm.com/streamsdev/>`_
