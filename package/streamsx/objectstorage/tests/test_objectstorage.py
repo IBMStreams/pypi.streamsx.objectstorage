@@ -155,7 +155,58 @@ class TestCOS(TestCase):
         tester = Tester(topo)
         tester.run_for(60)
         tester.tuple_count(r, 2, exact=True) # expect two lines 1:hello 2:World!
-        tester.test(self.test_ctxtype, self.test_config, always_collect_logs=True) 
+        tester.test(self.test_ctxtype, self.test_config, always_collect_logs=True)
+
+    def test_credentials_hmac(self):
+        cred_file = os.environ['COS_HMAC_CREDENTIALS']
+        print("COS HMAC credentials file:" + cred_file)
+        with open(cred_file) as data_file:
+            credentials = json.load(data_file)
+
+        topo = Topology('ObjectStorageHelloWorldWithCredsHMAC')
+        if self.objectstorage_toolkit_home is not None:
+            streamsx.spl.toolkit.add_toolkit(topo, self.objectstorage_toolkit_home)
+        to_cos = topo.source(['Hello', 'World!'])
+        to_cos = to_cos.as_string()
+        objectstorage.write(to_cos, self.bucket, self.endpoint, '/h/hw_%OBJECTNUM.txt', credentials=credentials)
+
+        scanned = objectstorage.scan(topo, bucket=self.bucket, endpoint=self.endpoint, directory='/h', credentials=credentials)
+        r = objectstorage.read(scanned, bucket=self.bucket, endpoint=self.endpoint, credentials=credentials)
+        r.print()
+        
+        tester = Tester(topo)
+        tester.run_for(60)
+        tester.tuple_count(r, 2, exact=True) # expect two lines 1:hello 2:World!
+        tester.test(self.test_ctxtype, self.test_config, always_collect_logs=True)
+
+    # Test with local MinIO endpoint with HTTP
+    def test_credentials_minio(self):
+        if ("TestDistributed" in str(self)):
+            cred_file = os.environ['MINIO_HMAC_CREDENTIALS']
+            print("MINIO HMAC credentials file:" + cred_file)
+            with open(cred_file) as data_file:
+                credentials = json.load(data_file)
+
+            endpoint=os.environ["MINIO_ENDPOINT"]
+
+            topo = Topology('ObjectStorageHelloWorldWithCredsMinio')
+            if self.objectstorage_toolkit_home is not None:
+                streamsx.spl.toolkit.add_toolkit(topo, self.objectstorage_toolkit_home)
+            to_cos = topo.source(['Hello', 'World!'])
+            to_cos = to_cos.as_string()
+            objectstorage.write(to_cos, self.bucket, endpoint, '/minio/hw_%OBJECTNUM.txt', credentials=credentials, ssl_enabled=False)
+
+            scanned = objectstorage.scan(topo, bucket=self.bucket, endpoint=endpoint, directory='/minio', credentials=credentials, ssl_enabled=False)
+            r = objectstorage.read(scanned, bucket=self.bucket, endpoint=endpoint, credentials=credentials, ssl_enabled=False)
+            r.print()
+        
+            tester = Tester(topo)
+            tester.run_for(60)
+            tester.tuple_count(r, 2, exact=True) # expect two lines 1:hello 2:World!
+            tester.test(self.test_ctxtype, self.test_config, always_collect_logs=True)
+        else:
+            print("TestDistributed is supported for tests with local minIO only")
+
 
 class TestDistributed(TestCOS):
 

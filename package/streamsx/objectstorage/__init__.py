@@ -25,6 +25,13 @@ By default an application configuration named `cos` is used,
 a different configuration name can be specified using the ``credentials``
 parameter to :py:func:`write`, :py:func:`write_parquet`, :py:func:`scan` or :py:func:`read`.
 
+In addition to IAM token-based authentication, it is also possible to authenticate using a signature created from a pair of access and secret keys. 
+Provide the HMAC keys with the ``credentials`` parameter as dictionary, for example:: 
+
+    credentials = {}
+    credentials['access_key_id'] = '7exampledonotusea6440da12685eee02'
+    credentials['secret_access_key'] = '8not8ed850cddbece407exampledonotuse43r2d2586'
+
 
 Endpoints
 +++++++++
@@ -39,14 +46,21 @@ When running the application in a **Streaming Analytics service** instance, it i
 
 * Storage class: `Standard`
 
-With these setting above it is recommended to use the private endpoint for the US-South region: `s3.private.us-south.cloud-object-storage.appdomain.cloud`
+With these setting above it is recommended to use the private endpoint for the US-South region::
+
+    endpoint='s3.private.us-south.cloud-object-storage.appdomain.cloud'
 
 **Note:**
 
 * *Use public endpoints to point your application that are hosted outside of the IBM cloud.*
 * *Use cross-region endpoints for buckets creation with cross-region resiliency.*
+* *Set the URL to object storage service with the* ``endpoint`` *parameter.*
 
 Find the list of endpoints and the endpoint description here: `IBM® Cloud Object Storage Endpoints <https://console.bluemix.net/docs/services/cloud-object-storage/basics/endpoints.html>`_
+
+To access any other Amazon S3 compatible object storage server you need set the ``endpoint`` parameter, for example the MinIO server running at `<https://play.min.io:9000>`_::
+
+    endpoint='play.min.io:9000'
 
 Sample
 ++++++
@@ -86,7 +100,7 @@ an object. Scan for created object on COS and read the content::
 
 """
 
-__version__='1.1.2'
+__version__='1.2.0'
 
 __all__ = ['write_parquet', 'scan', 'read', 'write', 'configure_connection']
 from streamsx.objectstorage._objectstorage import write_parquet, scan, read, write, configure_connection

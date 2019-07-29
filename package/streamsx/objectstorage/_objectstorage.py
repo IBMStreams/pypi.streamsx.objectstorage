@@ -10,6 +10,13 @@ from streamsx.topology.schema import CommonSchema, StreamSchema
 from streamsx.spl.types import rstring
 import json
 
+
+def _add_toolkit_dependency(topo, version):
+    # IMPORTANT: Dependency of this python wrapper to a specific toolkit version
+    # This is important when toolkit is not set with streamsx.spl.toolkit.add_toolkit (selecting toolkit from remote build service)
+    streamsx.spl.toolkit.add_toolkit_dependency(topo, 'com.ibm.streamsx.objectstorage', version)
+
+
 def configure_connection(instance, name='cos', credentials=None):
     """Configures IBM Streams for a certain connection.
 
@@ -63,7 +70,40 @@ def configure_connection(instance, name='cos', credentials=None):
     return name
 
 
-def scan(topology, bucket, endpoint, pattern='.*', directory='/', credentials=None, vm_arg=None, name=None):
+def _read_hmac_credentials(credentials):
+    access_key_id = None
+    secret_access_key = None
+    access_key_id = credentials.get('access_key_id')
+    secret_access_key = credentials.get('secret_access_key')
+    return access_key_id, secret_access_key
+
+
+def _read_iam_credentials(credentials):
+    iam_api_key = ""
+    service_instance_id = ""
+    api_key = credentials.get('apikey')
+    resource_instance_id = credentials.get('resource_instance_id')
+    # need to extract the last part of the resource_instance_id for ObjectStorage toolkit operators
+    data = resource_instance_id.split(":")
+    for temp in data:
+        if temp != '':
+            service_instance_id = temp
+    return api_key, service_instance_id
+
+
+def _check_time_per_object(time_per_object):
+    if isinstance(time_per_object, datetime.timedelta):
+        result = time_per_object.total_seconds()
+    elif isinstance(time_per_object, int) or isinstance(time_per_object, float):
+        result = time_per_object
+    else:
+        raise TypeError(time_per_object)
+    if result <= 1:
+        raise ValueError("Invalid time_per_object value. Value must be at least one second.")
+    return result
+
+
+def scan(topology, bucket, endpoint, pattern='.*', directory='/', credentials=None, ssl_enabled=None, vm_arg=None, name=None):
     """Scan a directory in a bucket for object names.
 
     Scans an object storage directory and emits the names of new or modified objects that are found in the directory.
@@ -81,6 +121,7 @@ def scan(topology, bucket, endpoint, pattern='.*', directory='/', credentials=No
         pattern(str): Limits the object names that are listed to the names that match the specified regular expression.
         directory(str): Specifies the name of the directory to be scanned. Any subdirectories are not scanned.
         credentials(str|dict): Credentials in JSON or name of the application configuration containing the credentials for Cloud Object Storage. When set to ``None`` the application configuration ``cos`` is used.
+        ssl_enabled(bool): Set to ``False`` if you want to use HTTP instead of HTTPS. Per default SSL is enabled and HTTPS is used.
         vm_arg(str): Arbitrary JVM arguments can be passed. For example, increase JVM's maximum heap size ``'-Xmx 8192m'``.     
         name(str): Sink name in the Streams context, defaults to a generated name.
 
@@ -96,14 +137,23 @@ def scan(topology, bucket, endpoint, pattern='.*', directory='/', credentials=No
     _op = _ObjectStorageScan(topology, CommonSchema.String, pattern=pattern, directory=directory, endpoint=endpoint, appConfigName=appConfigName, vmArg=vm_arg, name=name)
     _op.params['objectStorageURI'] = 's3a://'+bucket
     if isinstance(credentials, dict):
-        iam_api_key, service_instance_id = _read_iam_credentials(credentials)
-        _op.params['IAMApiKey'] = iam_api_key
-        _op.params['IAMServiceInstanceId'] = service_instance_id
+        access_key_id, secret_access_key = _read_hmac_credentials(credentials)
+        if access_key_id is not None and secret_access_key is not None:
+            _op.params['objectStorageUser'] = access_key_id
+            _op.params['objectStoragePassword'] = secret_access_key
+        else:
+            iam_api_key, service_instance_id = _read_iam_credentials(credentials)
+            _op.params['IAMApiKey'] = iam_api_key
+            _op.params['IAMServiceInstanceId'] = service_instance_id
+    if ssl_enabled is not None:
+        if ssl_enabled is False:
+            _add_toolkit_dependency(topology, '1.10.0')
+            _op.params['sslEnabled'] =  _op.expression('false')
 
     return _op.outputs[0]
 
 
-def read(stream, bucket, endpoint, credentials=None, vm_arg=None, name=None):
+def read(stream, bucket, endpoint, credentials=None, ssl_enabled=None, vm_arg=None, name=None):
     """Read an object in a bucket.
 
     Reads the object specified in the input stream and emits content of the object.
@@ -119,6 +169,7 @@ def read(stream, bucket, endpoint, credentials=None, vm_arg=None, name=None):
         bucket(str): Bucket name. Bucket must have been created in your Cloud Object Storage service before using this function.
         endpoint(str): Endpoint for Cloud Object Storage. Select the endpoint for your bucket location and resiliency: `IBM® Cloud Object Storage Endpoints <https://console.bluemix.net/docs/services/cloud-object-storage/basics/endpoints.html>`_. Use a private enpoint when running in IBM cloud Streaming Analytics service.
         credentials(str|dict): Credentials in JSON or name of the application configuration containing the credentials for Cloud Object Storage. When set to ``None`` the application configuration ``cos`` is used.
+        ssl_enabled(bool): Set to ``False`` if you want to use HTTP instead of HTTPS. Per default SSL is enabled and HTTPS is used.
         vm_arg(str): Arbitrary JVM arguments can be passed. For example, increase JVM's maximum heap size ``'-Xmx 8192m'``.        
         name(str): Sink name in the Streams context, defaults to a generated name.
 
@@ -134,35 +185,23 @@ def read(stream, bucket, endpoint, credentials=None, vm_arg=None, name=None):
     _op = _ObjectStorageSource(stream, CommonSchema.String, endpoint=endpoint, appConfigName=appConfigName, vmArg=vm_arg, name=name)
     _op.params['objectStorageURI'] = 's3a://'+bucket
     if isinstance(credentials, dict):
-        iam_api_key, service_instance_id = _read_iam_credentials(credentials)
-        _op.params['IAMApiKey'] = iam_api_key
-        _op.params['IAMServiceInstanceId'] = service_instance_id
+        access_key_id, secret_access_key = _read_hmac_credentials(credentials)
+        if access_key_id is not None and secret_access_key is not None:
+            _op.params['objectStorageUser'] = access_key_id
+            _op.params['objectStoragePassword'] = secret_access_key
+        else:
+            iam_api_key, service_instance_id = _read_iam_credentials(credentials)
+            _op.params['IAMApiKey'] = iam_api_key
+            _op.params['IAMServiceInstanceId'] = service_instance_id
+    if ssl_enabled is not None:
+        if ssl_enabled is False:
+            _add_toolkit_dependency(stream.topology, '1.10.0')
+            _op.params['sslEnabled'] =  _op.expression('false')
+
     return _op.outputs[0]
 
-def _read_iam_credentials(credentials):
-    iam_api_key = ""
-    service_instance_id = ""
-    api_key = credentials.get('apikey')
-    resource_instance_id = credentials.get('resource_instance_id')
-    # need to extract the last part of the resource_instance_id for ObjectStorage toolkit operators
-    data = resource_instance_id.split(":")
-    for temp in data:
-        if temp != '':
-            service_instance_id = temp
-    return api_key, service_instance_id
 
-def _check_time_per_object(time_per_object):
-    if isinstance(time_per_object, datetime.timedelta):
-        result = time_per_object.total_seconds()
-    elif isinstance(time_per_object, int) or isinstance(time_per_object, float):
-        result = time_per_object
-    else:
-        raise TypeError(time_per_object)
-    if result <= 1:
-        raise ValueError("Invalid time_per_object value. Value must be at least one second.")
-    return result
-
-def write(stream, bucket, endpoint, object, time_per_object=10.0, header=None, credentials=None, vm_arg=None, name=None):
+def write(stream, bucket, endpoint, object, time_per_object=10.0, header=None, credentials=None, ssl_enabled=None, vm_arg=None, name=None):
     """Write strings to an object.
 
     Adds a COS-Writer where each tuple on `stream` is
@@ -173,7 +212,7 @@ def write(stream, bucket, endpoint, object, time_per_object=10.0, header=None, c
         import streamsx.objectstorage as cos
         to_cos = topo.source(['Hello', 'World!'])
         to_cos = to_cos.as_string()
-        cos.write(to_cos, self.bucket, self.endpoint, '/sample/hw%OBJECTNUM.txt')
+        cos.write(to_cos, bucket, endpoint, '/sample/hw%OBJECTNUM.txt')
 
     Args:
         stream(Stream): Stream of tuples to be written to an object. Expects ``CommonSchema.String`` in the input stream.
@@ -183,6 +222,7 @@ def write(stream, bucket, endpoint, object, time_per_object=10.0, header=None, c
         time_per_object(int|float|datetime.timedelta): Specifies the approximate time, in seconds, after which the current output object is closed and a new object is opened for writing.
         header(str): Specify the content of the header row. This header is added as first line in the object. Use this parameter when writing strings in CSV format and you like to query the objects with the IBM SQL Query service. By default no header row is generated.
         credentials(str|dict): Credentials in JSON or name of the application configuration containing the credentials for Cloud Object Storage. When set to ``None`` the application configuration ``cos`` is used.
+        ssl_enabled(bool): Set to ``False`` if you want to use HTTP instead of HTTPS. Per default SSL is enabled and HTTPS is used.
         vm_arg(str): Arbitrary JVM arguments can be passed. For example, increase JVM's maximum heap size ``'-Xmx 8192m'``.
         name(str): Sink name in the Streams context, defaults to a generated name.
 
@@ -202,17 +242,35 @@ def write(stream, bucket, endpoint, object, time_per_object=10.0, header=None, c
     if header is not None:
         _op.params['headerRow'] = header
     if isinstance(credentials, dict):
-        iam_api_key, service_instance_id = _read_iam_credentials(credentials)
-        _op.params['IAMApiKey'] = iam_api_key
-        _op.params['IAMServiceInstanceId'] = service_instance_id
+        access_key_id, secret_access_key = _read_hmac_credentials(credentials)
+        if access_key_id is not None and secret_access_key is not None:
+            _op.params['objectStorageUser'] = access_key_id
+            _op.params['objectStoragePassword'] = secret_access_key
+        else:
+            iam_api_key, service_instance_id = _read_iam_credentials(credentials)
+            _op.params['IAMApiKey'] = iam_api_key
+            _op.params['IAMServiceInstanceId'] = service_instance_id
+    if ssl_enabled is not None:
+        if ssl_enabled is False:
+            _add_toolkit_dependency(stream.topology, '1.10.0')
+            _op.params['sslEnabled'] =  _op.expression('false')
 
     return streamsx.topology.topology.Sink(_op)
     
-def write_parquet(stream, bucket, endpoint, object, time_per_object=10.0, credentials=None, vm_arg=None, name=None):
+
+def write_parquet(stream, bucket, endpoint, object, time_per_object=10.0, credentials=None, ssl_enabled=None, vm_arg=None, name=None):
     """Create objects in parquet format.
 
     Adds a COS-Writer where each tuple on `stream` is
     written into an object in parquet format.
+
+    Example of creating objects in parquet format from a stream named 'js' in JSON format::
+
+        import streamsx.objectstorage as cos
+        ...
+        # JSON to tuple
+        to_cos = js.map(schema='tuple<rstring a, int32 b>')
+        cos.write(to_cos, bucket=bucket, endpoint=endpoint, object='/parquet/sample/hw%OBJECTNUM.parquet')
 
     Args:
         stream(Stream): Stream of tuples to be written to an object. Supports ``streamsx.topology.schema.StreamSchema`` (schema for a structured stream) as input. Attributes are mapped to parquet columns.
@@ -221,6 +279,7 @@ def write_parquet(stream, bucket, endpoint, object, time_per_object=10.0, creden
         object(str): Name of the object to be created in your bucket. For example, ``SAMPLE_%OBJECTNUM.parquet``, %OBJECTNUM is an object number, starting at 0. When a new object is opened for writing the number is incremented.
         time_per_object(int|float|datetime.timedelta): Specifies the approximate time, in seconds, after which the current output object is closed and a new object is opened for writing.
         credentials(str|dict): Credentials in JSON or name of the application configuration containing the credentials for Cloud Object Storage. When set to ``None`` the application configuration ``cos`` is used.
+        ssl_enabled(bool): Set to ``False`` if you want to use HTTP instead of HTTPS. Per default SSL is enabled and HTTPS is used.
         vm_arg(str): Arbitrary JVM arguments can be passed. For example, increase JVM's maximum heap size ``'-Xmx 8192m'``.
         name(str): Sink name in the Streams context, defaults to a generated name.
 
@@ -236,19 +295,30 @@ def write_parquet(stream, bucket, endpoint, object, time_per_object=10.0, creden
     _op = _ObjectStorageSink(stream, objectName=object, endpoint=endpoint, appConfigName=appConfigName, vmArg=vm_arg, name=name)
     _op.params['storageFormat'] = 'parquet'
     _op.params['parquetCompression'] = 'SNAPPY'
-    _op.params['parquetEnableDict'] = True
+    _op.params['parquetEnableDict'] = _op.expression('true')
     _op.params['objectStorageURI'] = 's3a://'+bucket
     _op.params['timePerObject'] = streamsx.spl.types.float64(_check_time_per_object(time_per_object))
     if isinstance(credentials, dict):
-        iam_api_key, service_instance_id = _read_iam_credentials(credentials)
-        _op.params['IAMApiKey'] = iam_api_key
-        _op.params['IAMServiceInstanceId'] = service_instance_id
+        access_key_id, secret_access_key = _read_hmac_credentials(credentials)
+        if access_key_id is not None and secret_access_key is not None:
+            _op.params['objectStorageUser'] = access_key_id
+            _op.params['objectStoragePassword'] = secret_access_key
+        else:
+            iam_api_key, service_instance_id = _read_iam_credentials(credentials)
+            _op.params['IAMApiKey'] = iam_api_key
+            _op.params['IAMServiceInstanceId'] = service_instance_id
+
+    if ssl_enabled is not None:
+        if ssl_enabled is False:
+            _add_toolkit_dependency(stream.topology, '1.10.0')
+            _op.params['sslEnabled'] =  _op.expression('false')
+
 
     return streamsx.topology.topology.Sink(_op)
 
 
 class _ObjectStorageSink(streamsx.spl.op.Invoke):
-    def __init__(self, stream, schema=None, vmArg=None, appConfigName=None, bytesPerObject=None, closeOnPunct=None, dataAttribute=None, encoding=None, endpoint=None, headerRow=None, objectName=None, objectNameAttribute=None, objectStorageURI=None, parquetBlockSize=None, parquetCompression=None, parquetDictPageSize=None, parquetEnableDict=None, parquetEnableSchemaValidation=None, parquetPageSize=None, parquetWriterVersion=None, partitionValueAttributes=None, skipPartitionAttributes=None, storageFormat=None, timeFormat=None, timePerObject=None, tuplesPerObject=None, IAMApiKey=None, IAMServiceInstanceId=None, name=None):
+    def __init__(self, stream, schema=None, vmArg=None, appConfigName=None, bytesPerObject=None, closeOnPunct=None, dataAttribute=None, encoding=None, endpoint=None, headerRow=None, objectName=None, objectNameAttribute=None, objectStorageURI=None, parquetBlockSize=None, parquetCompression=None, parquetDictPageSize=None, parquetEnableDict=None, parquetEnableSchemaValidation=None, parquetPageSize=None, parquetWriterVersion=None, partitionValueAttributes=None, skipPartitionAttributes=None, storageFormat=None, timeFormat=None, timePerObject=None, tuplesPerObject=None, IAMApiKey=None, IAMServiceInstanceId=None, objectStorageUser=None, objectStoragePassword=None, sslEnabled=None, name=None):
         topology = stream.topology
         kind="com.ibm.streamsx.objectstorage::ObjectStorageSink"
         inputs=stream
@@ -306,12 +376,18 @@ class _ObjectStorageSink(streamsx.spl.op.Invoke):
             params['IAMApiKey'] = IAMApiKey
         if IAMServiceInstanceId is not None:
             params['IAMServiceInstanceId'] = IAMServiceInstanceId
+        if objectStorageUser is not None:
+            params['objectStorageUser'] = objectStorageUser
+        if objectStoragePassword is not None:
+            params['objectStoragePassword'] = objectStoragePassword
+        if sslEnabled is not None:
+            params['sslEnabled'] = sslEnabled
 
         super(_ObjectStorageSink, self).__init__(topology,kind,inputs,schema,params,name)
 
 
 class _ObjectStorageScan(streamsx.spl.op.Source):
-    def __init__(self, topology, schema, directory, pattern, vmArg=None, appConfigName=None, endpoint=None, objectStorageURI=None, initDelay=None, sleepTime=None, strictMode=None, IAMApiKey=None, IAMServiceInstanceId=None, name=None):
+    def __init__(self, topology, schema, directory, pattern, vmArg=None, appConfigName=None, endpoint=None, objectStorageURI=None, initDelay=None, sleepTime=None, strictMode=None, IAMApiKey=None, IAMServiceInstanceId=None, objectStorageUser=None, objectStoragePassword=None, sslEnabled=None, name=None):
         kind="com.ibm.streamsx.objectstorage::ObjectStorageScan"
         inputs=None
         schemas=schema
@@ -337,13 +413,19 @@ class _ObjectStorageScan(streamsx.spl.op.Source):
             params['IAMApiKey'] = IAMApiKey
         if IAMServiceInstanceId is not None:
             params['IAMServiceInstanceId'] = IAMServiceInstanceId
+        if objectStorageUser is not None:
+            params['objectStorageUser'] = objectStorageUser
+        if objectStoragePassword is not None:
+            params['objectStoragePassword'] = objectStoragePassword
+        if sslEnabled is not None:
+            params['sslEnabled'] = sslEnabled
 
         super(_ObjectStorageScan, self).__init__(topology,kind,schemas,params,name)
 
 
 class _ObjectStorageSource(streamsx.spl.op.Invoke):
     
-    def __init__(self, stream, schema, vmArg=None, appConfigName=None, endpoint=None, objectStorageURI=None, blockSize=None, encoding=None, initDelay=None, IAMApiKey=None, IAMServiceInstanceId=None, name=None):
+    def __init__(self, stream, schema, vmArg=None, appConfigName=None, endpoint=None, objectStorageURI=None, blockSize=None, encoding=None, initDelay=None, IAMApiKey=None, IAMServiceInstanceId=None, objectStorageUser=None, objectStoragePassword=None, sslEnabled=None, name=None):
         kind="com.ibm.streamsx.objectstorage::ObjectStorageSource"
         topology = stream.topology
         inputs=stream
@@ -366,6 +448,12 @@ class _ObjectStorageSource(streamsx.spl.op.Invoke):
             params['IAMApiKey'] = IAMApiKey
         if IAMServiceInstanceId is not None:
             params['IAMServiceInstanceId'] = IAMServiceInstanceId
+        if objectStorageUser is not None:
+            params['objectStorageUser'] = objectStorageUser
+        if objectStoragePassword is not None:
+            params['objectStoragePassword'] = objectStoragePassword
+        if sslEnabled is not None:
+            params['sslEnabled'] = sslEnabled
 
         super(_ObjectStorageSource, self).__init__(topology,kind,inputs,schema,params,name)
 
