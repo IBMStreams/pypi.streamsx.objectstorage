@@ -183,9 +183,14 @@ class TestCOS(TestCase):
     def test_credentials_minio(self):
         if ("TestDistributed" in str(self)):
             cred_file = os.environ['MINIO_HMAC_CREDENTIALS']
-            print("MINIO HMAC credentials file:" + cred_file)
-            with open(cred_file) as data_file:
-                credentials = json.load(data_file)
+            credentials = None
+            if os.path.exists(cred_file):
+                print("MINIO HMAC credentials file: " + cred_file)
+                with open(cred_file) as data_file:
+                    credentials = json.load(data_file)
+            else:
+                print("MINIO HMAC credentials app config: " + cred_file)
+                credentials = cred_file
 
             endpoint=os.environ["MINIO_ENDPOINT"]
 
