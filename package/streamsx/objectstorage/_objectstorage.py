@@ -9,7 +9,9 @@ import streamsx.spl.types
 from streamsx.topology.schema import CommonSchema, StreamSchema
 from streamsx.spl.types import rstring
 import json
+from streamsx.toolkits import download_toolkit
 
+_TOOLKIT_NAME = 'com.ibm.streamsx.objectstorage'
 
 def _add_toolkit_dependency(topo, version):
     # IMPORTANT: Dependency of this python wrapper to a specific toolkit version
@@ -68,6 +70,40 @@ def configure_connection(instance, name='cos', credentials=None):
         print('create application configuration: ' + name)
         instance.create_application_configuration(name, properties, description)
     return name
+
+def download_toolkit(url=None, target_dir=None):
+    r"""Downloads the latest Objectstorage toolkit from GitHub.
+
+    Example for updating the Objectstorage toolkit for your topology with the latest toolkit from GitHub::
+
+        import streamsx.objectstorage as objectstorage
+        # download toolkit from GitHub
+        objectstorage_toolkit_location = objectstorage.download_toolkit()
+        # add the toolkit to topology
+        streamsx.spl.toolkit.add_toolkit(topology, objectstorage_toolkit_location)
+
+    Example for updating the topology with a specific version of the Objectstorage toolkit using a URL::
+
+        import streamsx.objectstorage as objectstorage
+        url1100 = 'https://github.com/IBMStreams/streamsx.objectstorage/releases/download/v1.10.0/streamsx.objectstorage.toolkits-1.10.0-20190730-1132.tgz'
+        objectstorage_toolkit_location = objectstorage.download_toolkit(url=url1100)
+        streamsx.spl.toolkit.add_toolkit(topology, objectstorage_toolkit_location)
+
+    Args:
+        url(str): Link to toolkit archive (\*.tgz) to be downloaded. Use this parameter to 
+            download a specific version of the toolkit.
+        target_dir(str): the directory where the toolkit is unpacked to. If a relative path is given,
+            the path is appended to the system temporary directory, for example to /tmp on Unix/Linux systems.
+            If target_dir is ``None`` a location relative to the system temporary directory is chosen.
+
+    Returns:
+        str: the location of the downloaded Objectstorage toolkit
+
+    .. note:: This function requires an outgoing Internet connection
+    .. versionadded:: 1.3
+    """
+    _toolkit_location = streamsx.toolkits.download_toolkit (toolkit_name=_TOOLKIT_NAME, url=url, target_dir=target_dir)
+    return _toolkit_location
 
 
 def _read_hmac_credentials(credentials):
