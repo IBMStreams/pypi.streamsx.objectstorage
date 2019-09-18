@@ -46,6 +46,20 @@ class TestParams(TestCase):
         self.assertRaises(ValueError, objectstorage.write, to_cos, 'streams-bucket', 's3.private.us-south.cloud-object-storage.appdomain.cloud', 'test%OBJECTNUM.parquet', datetime.timedelta(milliseconds=100))
         self.assertRaises(ValueError, objectstorage.write, to_cos, 'streams-bucket', 's3.private.us-south.cloud-object-storage.appdomain.cloud', 'test%OBJECTNUM.parquet', 0.9)
 
+    def test_credentials_as_dict(self):
+        cred_file = os.environ['COS_IAM_CREDENTIALS']
+        print("COS IAM credentials file:" + cred_file)
+        with open(cred_file) as data_file:
+            credentials = json.load(data_file)
+
+        topo = Topology('test_credentials_as_dict')
+        to_cos = topo.source(['Hello', 'World!'])
+        to_cos = to_cos.as_string()
+        objectstorage.write(to_cos, 'abc', 'xx', '/x/yz_%OBJECTNUM.txt', credentials=credentials)
+
+        result = streamsx.topology.context.submit("TOOLKIT", topo.graph) # creates tk* directory
+        print(' (TOOLKIT):' + str(result))
+
 
 class TestCOS(TestCase):
 
@@ -151,7 +165,7 @@ class TestCOS(TestCase):
         scanned = objectstorage.scan(topo, bucket=self.bucket, endpoint=self.endpoint, directory='/c', credentials=credentials)
         r = objectstorage.read(scanned, bucket=self.bucket, endpoint=self.endpoint, credentials=credentials)
         r.print()
-        
+
         tester = Tester(topo)
         tester.run_for(60)
         tester.tuple_count(r, 2, exact=True) # expect two lines 1:hello 2:World!

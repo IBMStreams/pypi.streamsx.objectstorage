@@ -114,19 +114,6 @@ def _read_hmac_credentials(credentials):
     return access_key_id, secret_access_key
 
 
-def _read_iam_credentials(credentials):
-    iam_api_key = ""
-    service_instance_id = ""
-    api_key = credentials.get('apikey')
-    resource_instance_id = credentials.get('resource_instance_id')
-    # need to extract the last part of the resource_instance_id for ObjectStorage toolkit operators
-    data = resource_instance_id.split(":")
-    for temp in data:
-        if temp != '':
-            service_instance_id = temp
-    return api_key, service_instance_id
-
-
 def _check_time_per_object(time_per_object):
     if isinstance(time_per_object, datetime.timedelta):
         result = time_per_object.total_seconds()
@@ -172,15 +159,15 @@ def scan(topology, bucket, endpoint, pattern='.*', directory='/', credentials=No
 
     _op = _ObjectStorageScan(topology, CommonSchema.String, pattern=pattern, directory=directory, endpoint=endpoint, appConfigName=appConfigName, vmArg=vm_arg, name=name)
     _op.params['objectStorageURI'] = 's3a://'+bucket
+
     if isinstance(credentials, dict):
         access_key_id, secret_access_key = _read_hmac_credentials(credentials)
         if access_key_id is not None and secret_access_key is not None:
             _op.params['objectStorageUser'] = access_key_id
             _op.params['objectStoragePassword'] = secret_access_key
         else:
-            iam_api_key, service_instance_id = _read_iam_credentials(credentials)
-            _op.params['IAMApiKey'] = iam_api_key
-            _op.params['IAMServiceInstanceId'] = service_instance_id
+            _op.params['credentials'] = json.dumps(credentials)
+
     if ssl_enabled is not None:
         if ssl_enabled is False:
             _add_toolkit_dependency(topology, '1.10.0')
@@ -220,15 +207,15 @@ def read(stream, bucket, endpoint, credentials=None, ssl_enabled=None, vm_arg=No
 
     _op = _ObjectStorageSource(stream, CommonSchema.String, endpoint=endpoint, appConfigName=appConfigName, vmArg=vm_arg, name=name)
     _op.params['objectStorageURI'] = 's3a://'+bucket
+
     if isinstance(credentials, dict):
         access_key_id, secret_access_key = _read_hmac_credentials(credentials)
         if access_key_id is not None and secret_access_key is not None:
             _op.params['objectStorageUser'] = access_key_id
             _op.params['objectStoragePassword'] = secret_access_key
         else:
-            iam_api_key, service_instance_id = _read_iam_credentials(credentials)
-            _op.params['IAMApiKey'] = iam_api_key
-            _op.params['IAMServiceInstanceId'] = service_instance_id
+            _op.params['credentials'] = json.dumps(credentials)
+
     if ssl_enabled is not None:
         if ssl_enabled is False:
             _add_toolkit_dependency(stream.topology, '1.10.0')
@@ -275,17 +262,18 @@ def write(stream, bucket, endpoint, object, time_per_object=10.0, header=None, c
     _op.params['storageFormat'] = 'raw'
     _op.params['objectStorageURI'] = 's3a://'+bucket
     _op.params['timePerObject'] = streamsx.spl.types.float64(_check_time_per_object(time_per_object))
+
     if header is not None:
         _op.params['headerRow'] = header
+
     if isinstance(credentials, dict):
         access_key_id, secret_access_key = _read_hmac_credentials(credentials)
         if access_key_id is not None and secret_access_key is not None:
             _op.params['objectStorageUser'] = access_key_id
             _op.params['objectStoragePassword'] = secret_access_key
         else:
-            iam_api_key, service_instance_id = _read_iam_credentials(credentials)
-            _op.params['IAMApiKey'] = iam_api_key
-            _op.params['IAMServiceInstanceId'] = service_instance_id
+            _op.params['credentials'] = json.dumps(credentials)
+
     if ssl_enabled is not None:
         if ssl_enabled is False:
             _add_toolkit_dependency(stream.topology, '1.10.0')
@@ -340,9 +328,7 @@ def write_parquet(stream, bucket, endpoint, object, time_per_object=10.0, creden
             _op.params['objectStorageUser'] = access_key_id
             _op.params['objectStoragePassword'] = secret_access_key
         else:
-            iam_api_key, service_instance_id = _read_iam_credentials(credentials)
-            _op.params['IAMApiKey'] = iam_api_key
-            _op.params['IAMServiceInstanceId'] = service_instance_id
+            _op.params['credentials'] = json.dumps(credentials)
 
     if ssl_enabled is not None:
         if ssl_enabled is False:
