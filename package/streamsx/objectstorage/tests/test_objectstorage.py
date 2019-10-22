@@ -1,4 +1,5 @@
 from unittest import TestCase
+import unittest
 
 import streamsx.objectstorage as objectstorage
 
@@ -67,6 +68,14 @@ class TestCOS(TestCase):
     def setUpClass(self):
         self.bucket = os.environ["COS_BUCKET"]
         self.endpoint=os.environ["COS_ENDPOINT"]
+
+    def _minio_credentials():
+        result = True
+        try:
+            os.environ['MINIO_HMAC_CREDENTIALS']
+        except KeyError: 
+            result = False
+        return result
 
     def test_parquet(self):
         topo = Topology()
@@ -194,6 +203,7 @@ class TestCOS(TestCase):
         tester.test(self.test_ctxtype, self.test_config, always_collect_logs=True)
 
     # Test with local MinIO endpoint with HTTP
+    @unittest.skipIf(_minio_credentials() == False, "Missing MINIO_HMAC_CREDENTIALS environment variable.")
     def test_credentials_minio(self):
         if ("TestDistributed" in str(self)):
             cred_file = os.environ['MINIO_HMAC_CREDENTIALS']
