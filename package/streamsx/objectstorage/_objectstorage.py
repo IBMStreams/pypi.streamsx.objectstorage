@@ -170,7 +170,7 @@ def scan(topology, bucket, endpoint, pattern='.*', directory='/', credentials=No
 
     if ssl_enabled is not None:
         if ssl_enabled is False:
-            _add_toolkit_dependency(topology, '1.10.0')
+            _add_toolkit_dependency(topology, '[1.10.0,3.0.0)')
             _op.params['sslEnabled'] =  _op.expression('false')
 
     return _op.outputs[0]
@@ -218,7 +218,7 @@ def read(stream, bucket, endpoint, credentials=None, ssl_enabled=None, vm_arg=No
 
     if ssl_enabled is not None:
         if ssl_enabled is False:
-            _add_toolkit_dependency(stream.topology, '1.10.0')
+            _add_toolkit_dependency(stream.topology, '[1.10.0,3.0.0)')
             _op.params['sslEnabled'] =  _op.expression('false')
 
     return _op.outputs[0]
@@ -276,7 +276,7 @@ def write(stream, bucket, endpoint, object, time_per_object=10.0, header=None, c
 
     if ssl_enabled is not None:
         if ssl_enabled is False:
-            _add_toolkit_dependency(stream.topology, '1.10.0')
+            _add_toolkit_dependency(stream.topology, '[1.10.0,3.0.0)')
             _op.params['sslEnabled'] =  _op.expression('false')
 
     return streamsx.topology.topology.Sink(_op)
@@ -332,7 +332,7 @@ def write_parquet(stream, bucket, endpoint, object, time_per_object=10.0, creden
 
     if ssl_enabled is not None:
         if ssl_enabled is False:
-            _add_toolkit_dependency(stream.topology, '1.10.0')
+            _add_toolkit_dependency(stream.topology, '[1.10.0,3.0.0)')
             _op.params['sslEnabled'] =  _op.expression('false')
 
 
