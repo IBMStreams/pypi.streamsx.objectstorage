@@ -8,6 +8,8 @@ Overview
 
 `IBM® Cloud Object Storage <https://www.ibm.com/cloud/object-storage>`_ (COS) makes it possible to store practically limitless amounts of data, simply and cost effectively. It is commonly used for data archiving and backup, web and mobile applications, and as scalable, persistent storage for analytics.
 
+Cloud Object Storage or any other S3 compatible object storage can be used.
+
 This module allows a Streams application to create objects in parquet format :py:func:`write_parquet <write_parquet>` or
 to write string messages with :py:func:`write <write>` from a stream
 of tuples.
@@ -66,7 +68,7 @@ Sample
 ++++++
 
 A simple hello world example of a Streams application writing string messages to
-an object. Scan for created object on COS and read the content::
+an object. Scan for created object and read the content::
 
     from streamsx.topology.topology import *
     from streamsx.topology.schema import CommonSchema
@@ -100,7 +102,7 @@ an object. Scan for created object on COS and read the content::
 
 """
 
-__version__='1.4.1'
+__version__='1.4.2'
 
 __all__ = ['download_toolkit', 'write_parquet', 'scan', 'read', 'write', 'configure_connection']
 from streamsx.objectstorage._objectstorage import download_toolkit, write_parquet, scan, read, write, configure_connection

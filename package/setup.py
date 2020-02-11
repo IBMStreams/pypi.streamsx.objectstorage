@@ -5,7 +5,7 @@ setup(
   packages = ['streamsx.objectstorage'],
   include_package_data=True,
   version = streamsx.objectstorage.__version__,
-  description = 'IBM Streams Cloud Object Storage integration',
+  description = 'Object Storage integration for IBM Streams',
   long_description = open('DESC.txt').read(),
   author = 'IBM Streams @ github.com',
   author_email = 'hegermar@de.ibm.com',
