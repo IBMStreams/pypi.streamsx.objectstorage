@@ -1,2 +1,2 @@
-streamsx>=1.12.10
+streamsx>=1.12.10,<2.0
 streamsx.toolkits
