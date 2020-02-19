@@ -188,7 +188,7 @@ def read(stream, bucket, endpoint, credentials=None, ssl_enabled=None, vm_arg=No
         r = cos.read(scanned, bucket=bucket, endpoint=endpoint)
 
     Args:
-        stream(Stream): Stream of tuples with object names to be read. Expects ``CommonSchema.String`` in the input stream.
+        stream(streamsx.topology.topology.Stream): Stream of tuples with object names to be read. Expects ``CommonSchema.String`` in the input stream.
         bucket(str): Bucket name. Bucket must have been created in your Cloud Object Storage service before using this function.
         endpoint(str): Endpoint for Cloud Object Storage. Select the endpoint for your bucket location and resiliency: `IBM® Cloud Object Storage Endpoints <https://console.bluemix.net/docs/services/cloud-object-storage/basics/endpoints.html>`_. Use a private enpoint when running in IBM cloud Streaming Analytics service.
         credentials(str|dict): Credentials in JSON or name of the application configuration containing the credentials for Cloud Object Storage. When set to ``None`` the application configuration ``cos`` is used.
@@ -197,7 +197,7 @@ def read(stream, bucket, endpoint, credentials=None, ssl_enabled=None, vm_arg=No
         name(str): Sink name in the Streams context, defaults to a generated name.
 
     Returns:
-        Stream: Object content line by line with schema ``CommonSchema.String``.
+        :py:class:`topology_ref:streamsx.topology.topology.Stream`: Object content line by line with schema ``CommonSchema.String``.
     """
 
     appConfigName=credentials
@@ -238,7 +238,7 @@ def write(stream, bucket, endpoint, object, time_per_object=10.0, header=None, c
         cos.write(to_cos, bucket, endpoint, '/sample/hw%OBJECTNUM.txt')
 
     Args:
-        stream(Stream): Stream of tuples to be written to an object. Expects ``CommonSchema.String`` in the input stream.
+        stream(streamsx.topology.topology.Stream): Stream of tuples to be written to an object. Expects ``CommonSchema.String`` in the input stream.
         bucket(str): Bucket name. Bucket must have been created in your Cloud Object Storage service before using this function.
         endpoint(str): Endpoint for Cloud Object Storage. Select the endpoint for your bucket location and resiliency: `IBM® Cloud Object Storage Endpoints <https://console.bluemix.net/docs/services/cloud-object-storage/basics/endpoints.html>`_. Use a private enpoint when running in IBM cloud Streaming Analytics service.
         object(str): Name of the object to be created in your bucket. For example, ``SAMPLE_%OBJECTNUM.text``, %OBJECTNUM is an object number, starting at 0. When a new object is opened for writing the number is incremented.
@@ -250,7 +250,7 @@ def write(stream, bucket, endpoint, object, time_per_object=10.0, header=None, c
         name(str): Sink name in the Streams context, defaults to a generated name.
 
     Returns:
-        streamsx.topology.topology.Sink: Stream termination.
+        :py:class:`topology_ref:streamsx.topology.topology.Sink`: Stream termination.
     """
 
     appConfigName=credentials
@@ -297,7 +297,7 @@ def write_parquet(stream, bucket, endpoint, object, time_per_object=10.0, creden
         cos.write(to_cos, bucket=bucket, endpoint=endpoint, object='/parquet/sample/hw%OBJECTNUM.parquet')
 
     Args:
-        stream(Stream): Stream of tuples to be written to an object. Supports ``streamsx.topology.schema.StreamSchema`` (schema for a structured stream) as input. Attributes are mapped to parquet columns.
+        stream(streamsx.topology.topology.Stream): Stream of tuples to be written to an object. Supports ``streamsx.topology.schema.StreamSchema`` (schema for a structured stream) as input. Attributes are mapped to parquet columns.
         bucket(str): Bucket name. Bucket must have been created in your Cloud Object Storage service before using this function.
         endpoint(str): Endpoint for Cloud Object Storage. Select the endpoint for your bucket location and resiliency: `IBM® Cloud Object Storage Endpoints <https://console.bluemix.net/docs/services/cloud-object-storage/basics/endpoints.html>`_. Use a private enpoint when running in IBM cloud Streaming Analytics service.
         object(str): Name of the object to be created in your bucket. For example, ``SAMPLE_%OBJECTNUM.parquet``, %OBJECTNUM is an object number, starting at 0. When a new object is opened for writing the number is incremented.
@@ -308,7 +308,7 @@ def write_parquet(stream, bucket, endpoint, object, time_per_object=10.0, creden
         name(str): Sink name in the Streams context, defaults to a generated name.
 
     Returns:
-        streamsx.topology.topology.Sink: Stream termination.
+        :py:class:`topology_ref:streamsx.topology.topology.Sink`: Stream termination.
     """
 
     appConfigName=credentials

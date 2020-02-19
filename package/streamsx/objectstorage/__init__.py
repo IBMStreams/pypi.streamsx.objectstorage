@@ -102,7 +102,7 @@ an object. Scan for created object and read the content::
 
 """
 
-__version__='1.4.2'
+__version__='1.4.3'
 
-__all__ = ['download_toolkit', 'write_parquet', 'scan', 'read', 'write', 'configure_connection']
+__all__ = ['scan', 'read', 'write', 'write_parquet', 'download_toolkit', 'configure_connection']
 from streamsx.objectstorage._objectstorage import download_toolkit, write_parquet, scan, read, write, configure_connection
