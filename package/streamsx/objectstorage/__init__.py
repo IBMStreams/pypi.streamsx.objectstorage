@@ -10,10 +10,10 @@ Overview
 
 Cloud Object Storage or any other S3 compatible object storage can be used.
 
-This module allows a Streams application to create objects in parquet format :py:func:`write_parquet <write_parquet>` or
-to write string messages with :py:func:`write <write>` from a stream
+This module allows a Streams application to create objects in parquet format :py:class:`WriteParquet <WriteParquet>` or
+to write string messages with :py:class:`Write <Write>` from a stream
 of tuples.
-Objects can be listed with :py:func:`scan <scan>` and read with :py:func:`read <read>`.
+Objects can be listed with :py:class:`Scan <Scan>` and read with :py:class:`Read <Read>`.
 
 Credentials
 +++++++++++
@@ -25,7 +25,7 @@ Select one of the following options to define your Cloud Object Storage credenti
 
 By default an application configuration named `cos` is used,
 a different configuration name can be specified using the ``credentials``
-parameter to :py:func:`write`, :py:func:`write_parquet`, :py:func:`scan` or :py:func:`read`.
+parameter to :py:class:`Write`, :py:class:`WriteParquet`, :py:class:`Scan` or :py:class:`Read`.
 
 In addition to IAM token-based authentication, it is also possible to authenticate using a signature created from a pair of access and secret keys. 
 Provide the HMAC keys with the ``credentials`` parameter as dictionary, for example:: 
@@ -86,12 +86,12 @@ an object. Scan for created object and read the content::
     endpoint='s3.private.us-south.cloud-object-storage.appdomain.cloud'
     
     # Write a stream to COS
-    cos.write(to_cos, bucket, endpoint, '/sample/hw%OBJECTNUM.txt')
+    to_cos.for_each(cos.write(bucket, endpoint, '/sample/hw%OBJECTNUM.txt'))
 
-    scanned = cos.scan(topo, bucket=bucket, endpoint=endpoint, directory='/sample')
+    scanned = topo.source(cos.scan(bucket=bucket, endpoint=endpoint, directory='/sample'))
     
     # read text file line by line
-    r = cos.read(scanned, bucket=bucket, endpoint=endpoint)
+    r = scanned.map(cos.read(bucket=bucket, endpoint=endpoint))
     
     # print each line (tuple)
     r.print()
@@ -102,7 +102,8 @@ an object. Scan for created object and read the content::
 
 """
 
-__version__='1.4.3'
+__version__='1.5.0'
 
-__all__ = ['scan', 'read', 'write', 'write_parquet', 'download_toolkit', 'configure_connection']
-from streamsx.objectstorage._objectstorage import download_toolkit, write_parquet, scan, read, write, configure_connection
+__all__ = ['Scan', 'Read', 'Write', 'WriteParquet', 'download_toolkit', 'configure_connection', 'scan', 'read', 'write', 'write_parquet']
+from streamsx.objectstorage._objectstorage import Scan, Read, Write, WriteParquet, download_toolkit, configure_connection, scan, read, write, write_parquet
+
