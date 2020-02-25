@@ -10,6 +10,7 @@ from streamsx.topology.schema import CommonSchema, StreamSchema
 from streamsx.spl.types import rstring
 import json
 from streamsx.toolkits import download_toolkit
+import streamsx.topology.composite
 
 _TOOLKIT_NAME = 'com.ibm.streamsx.objectstorage'
 
@@ -71,6 +72,7 @@ def configure_connection(instance, name='cos', credentials=None):
         instance.create_application_configuration(name, properties, description)
     return name
 
+
 def download_toolkit(url=None, target_dir=None):
     r"""Downloads the latest Objectstorage toolkit from GitHub.
 
@@ -126,6 +128,401 @@ def _check_time_per_object(time_per_object):
     return result
 
 
+class Scan(streamsx.topology.composite.Source):
+    """Scan a directory in a bucket for object names.
+
+    Scans an object storage directory and emits the names of new or modified objects that are found in the directory.
+
+    Example scanning a directory ``/sample`` for objects matching the pattern::
+
+        import streamsx.objectstorage as cos
+
+        scans = topo.source(cos.Scan(bucket='your-bucket-name', directory='/sample', pattern='SAMPLE_[0-9]*\\.ascii\\.text$'))
+
+    .. versionadded:: 1.5
+
+    Attributes
+    ----------
+    bucket : str
+        Bucket name. Bucket must have been created in your Cloud Object Storage service before using this class.
+    endpoint : str
+        Endpoint for Cloud Object Storage. Select the endpoint for your bucket location and resiliency: `IBM® Cloud Object Storage Endpoints <https://console.bluemix.net/docs/services/cloud-object-storage/basics/endpoints.html>`_. Use a private enpoint when running in IBM cloud Streaming Analytics service.
+    pattern : str
+        Limits the object names that are listed to the names that match the specified regular expression.
+    directory : str
+        Specifies the name of the directory to be scanned. Any subdirectories are not scanned.
+    credentials : str|dict
+        Credentials in JSON or name of the application configuration containing the credentials for Cloud Object Storage. When set to ``None`` the application configuration ``cos`` is used.
+    options : kwargs
+        The additional optional parameters as variable keyword arguments.
+
+    Returns:
+        Stream: Object names stream with schema ``CommonSchema.String``.
+    """
+
+    def __init__(self, bucket, endpoint, pattern='.*', directory='/', credentials=None, **options):
+        self.bucket = bucket
+        self.endpoint = endpoint
+        self.pattern = pattern
+        self.directory = directory
+        self.credentials = credentials
+
+        self.ssl_enabled = None
+        self.vm_arg = None
+        if 'ssl_enabled' in options:
+            self.ssl_enabled = options.get('ssl_enabled')
+        if 'vm_arg' in options:
+            self.vm_arg = options.get('vm_arg')
+
+    @property
+    def vm_arg(self):
+        """
+            str: Arbitrary JVM arguments can be passed. For example, increase JVM's maximum heap size ``'-Xmx 8192m'``.
+        """
+        return self._vm_arg
+
+    @vm_arg.setter
+    def vm_arg(self, value):
+        self._vm_arg = value
+        
+
+    @property
+    def ssl_enabled(self):
+        """
+            bool: Set to ``False`` if you want to use HTTP instead of HTTPS. Per default SSL is enabled and HTTPS is used.
+        """
+        return self._ssl_enabled
+
+    @ssl_enabled.setter
+    def ssl_enabled(self, value):
+        self._ssl_enabled = value
+
+    def populate(self, topology, name, **options):
+        app_config_name = self.credentials
+        # check if it's the credentials for the service
+        if isinstance(self.credentials, dict):
+            app_config_name = None
+
+        _op = _ObjectStorageScan(topology, CommonSchema.String, pattern = self.pattern, directory = self.directory, endpoint = self.endpoint, appConfigName = app_config_name, vmArg = self.vm_arg, name = name)
+        _op.params['objectStorageURI'] = 's3a://'+self.bucket
+
+        if isinstance(self.credentials, dict):
+            access_key_id, secret_access_key = _read_hmac_credentials(self.credentials)
+            if access_key_id is not None and secret_access_key is not None:
+                _op.params['objectStorageUser'] = access_key_id
+                _op.params['objectStoragePassword'] = secret_access_key
+            else:
+                _op.params['credentials'] = json.dumps(self.credentials)
+
+        if self.ssl_enabled is not None:
+            if self.ssl_enabled is False:
+                _add_toolkit_dependency(topology, '[1.10.0,3.0.0)')
+                _op.params['sslEnabled'] =  _op.expression('false')
+
+        return _op.outputs[0]
+
+
+class Read(streamsx.topology.composite.Map):
+    """Read an object in a bucket.
+
+    Reads the object specified in the input stream and emits content of the object. Expects ``CommonSchema.String`` in the input stream.
+
+    Example of reading object with the objects names from the ``scanned`` stream::
+
+        import streamsx.objectstorage as cos
+
+        r = scanned.map(cos.Read(bucket=bucket, endpoint=endpoint))
+
+    .. versionadded:: 1.5
+
+    Attributes
+    ----------
+    bucket : str
+        Bucket name. Bucket must have been created in your Cloud Object Storage service before using this class.
+    endpoint : str
+        Endpoint for Cloud Object Storage. Select the endpoint for your bucket location and resiliency: `IBM® Cloud Object Storage Endpoints <https://console.bluemix.net/docs/services/cloud-object-storage/basics/endpoints.html>`_. Use a private enpoint when running in IBM cloud Streaming Analytics service.
+    credentials : str|dict
+        Credentials in JSON or name of the application configuration containing the credentials for Cloud Object Storage. When set to ``None`` the application configuration ``cos`` is used.
+    options : kwargs
+        The additional optional parameters as variable keyword arguments.
+
+    Returns:
+        :py:class:`topology_ref:streamsx.topology.topology.Stream`: Object content line by line with schema ``CommonSchema.String``.
+    """
+    def __init__(self, bucket, endpoint, credentials=None, **options):
+        self.bucket = bucket
+        self.endpoint = endpoint
+        self.credentials = credentials
+
+        self.ssl_enabled = None
+        self.vm_arg = None
+        if 'ssl_enabled' in options:
+            self.ssl_enabled = options.get('ssl_enabled')
+        if 'vm_arg' in options:
+            self.vm_arg = options.get('vm_arg')
+
+    @property
+    def vm_arg(self):
+        """
+            str: Arbitrary JVM arguments can be passed. For example, increase JVM's maximum heap size ``'-Xmx 8192m'``.
+        """
+        return self._vm_arg
+
+    @vm_arg.setter
+    def vm_arg(self, value):
+        self._vm_arg = value
+
+    @property
+    def ssl_enabled(self):
+        """
+            bool: Set to ``False`` if you want to use HTTP instead of HTTPS. Per default SSL is enabled and HTTPS is used.
+        """
+        return self._ssl_enabled
+
+    @ssl_enabled.setter
+    def ssl_enabled(self, value):
+        self._ssl_enabled = value
+
+
+    def populate(self, topology, stream, schema, name, **options):
+        app_config_name = self.credentials
+        # check if it's the credentials for the service
+        if isinstance(self.credentials, dict):
+            app_config_name = None
+
+        _op = _ObjectStorageSource(stream, CommonSchema.String, endpoint = self.endpoint, appConfigName = app_config_name, vmArg = self.vm_arg, name = name)
+        _op.params['objectStorageURI'] = 's3a://'+self.bucket
+
+        if isinstance(self.credentials, dict):
+            access_key_id, secret_access_key = _read_hmac_credentials(self.credentials)
+            if access_key_id is not None and secret_access_key is not None:
+                _op.params['objectStorageUser'] = access_key_id
+                _op.params['objectStoragePassword'] = secret_access_key
+            else:
+                _op.params['credentials'] = json.dumps(self.credentials)
+
+        if self.ssl_enabled is not None:
+            if self.ssl_enabled is False:
+                _add_toolkit_dependency(topology, '[1.10.0,3.0.0)')
+                _op.params['sslEnabled'] =  _op.expression('false')
+
+        return _op.outputs[0]
+
+
+class Write(streamsx.topology.composite.ForEach):
+    """Write strings to an object.
+
+    Adds a COS-Writer where each tuple on `stream` is
+    written into an object.
+
+    Expects ``CommonSchema.String`` in the input stream.
+
+    Example of creating an object with two lines::
+
+        import streamsx.objectstorage as cos
+        to_cos = topo.source(['Hello', 'World!'])
+        to_cos = to_cos.as_string()
+        to_cos.for_each(cos.Write(bucket, endpoint, '/sample/hw%OBJECTNUM.txt'))
+
+    .. versionadded:: 1.5
+
+    Attributes
+    ----------
+    bucket : str
+        Bucket name. Bucket must have been created in your Cloud Object Storage service before using this class.
+    endpoint : str
+        Endpoint for Cloud Object Storage. Select the endpoint for your bucket location and resiliency: `IBM® Cloud Object Storage Endpoints <https://console.bluemix.net/docs/services/cloud-object-storage/basics/endpoints.html>`_. Use a private enpoint when running in IBM cloud Streaming Analytics service.
+    object : str
+        Name of the object to be created in your bucket. For example, ``SAMPLE_%OBJECTNUM.text``, %OBJECTNUM is an object number, starting at 0. When a new object is opened for writing the number is incremented.
+    time_per_object : int|float|datetime.timedelta
+        Specifies the approximate time, in seconds, after which the current output object is closed and a new object is opened for writing.
+    credentials : str|dict
+        Credentials in JSON or name of the application configuration containing the credentials for Cloud Object Storage. When set to ``None`` the application configuration ``cos`` is used.
+    options : kwargs
+        The additional optional parameters as variable keyword arguments.
+
+    Returns:
+        :py:class:`topology_ref:streamsx.topology.topology.Sink`: Stream termination.
+    """
+    def __init__(self, bucket, endpoint, object, time_per_object=10.0, credentials=None, **options):
+        self.bucket = bucket
+        self.endpoint = endpoint
+        self.object = object
+        self.credentials = credentials
+        self.time_per_object = time_per_object
+        self.header = None
+        self.ssl_enabled = None
+        self.vm_arg = None
+        if 'header' in options:
+            self.header = options.get('header')
+        if 'ssl_enabled' in options:
+            self.ssl_enabled = options.get('ssl_enabled')
+        if 'vm_arg' in options:
+            self.vm_arg = options.get('vm_arg')
+
+    @property
+    def header(self):
+        """
+            str: Specify the content of the header row. This header is added as first line in the object. Use this parameter when writing strings in CSV format and you like to query the objects with the IBM SQL Query service. By default no header row is generated.
+        """
+        return self._header
+
+    @header.setter
+    def header(self, value):
+        self._header = value
+
+    @property
+    def vm_arg(self):
+        """
+            str: Arbitrary JVM arguments can be passed. For example, increase JVM's maximum heap size ``'-Xmx 8192m'``.
+        """
+        return self._vm_arg
+
+    @vm_arg.setter
+    def vm_arg(self, value):
+        self._vm_arg = value
+
+    @property
+    def ssl_enabled(self):
+        """
+            bool: Set to ``False`` if you want to use HTTP instead of HTTPS. Per default SSL is enabled and HTTPS is used.
+        """
+        return self._ssl_enabled
+
+    @ssl_enabled.setter
+    def ssl_enabled(self, value):
+        self._ssl_enabled = value
+
+    def populate(self, topology, stream, name, **options) -> streamsx.topology.topology.Sink:
+        app_config_name = self.credentials
+        # check if it's the credentials for the service
+        if isinstance(self.credentials, dict):
+            app_config_name = None
+
+        _op = _ObjectStorageSink(stream, objectName = self.object, endpoint = self.endpoint, appConfigName = app_config_name, vmArg = self.vm_arg, name = name)
+        _op.params['storageFormat'] = 'raw'
+        _op.params['objectStorageURI'] = 's3a://'+self.bucket
+        _op.params['timePerObject'] = streamsx.spl.types.float64(_check_time_per_object(self.time_per_object))
+
+        if self.header is not None:
+            _op.params['headerRow'] = self.header
+
+        if isinstance(self.credentials, dict):
+            access_key_id, secret_access_key = _read_hmac_credentials(self.credentials)
+            if access_key_id is not None and secret_access_key is not None:
+                _op.params['objectStorageUser'] = access_key_id
+                _op.params['objectStoragePassword'] = secret_access_key
+            else:
+                _op.params['credentials'] = json.dumps(self.credentials)
+
+        if self.ssl_enabled is not None:
+            if self.ssl_enabled is False:
+                _add_toolkit_dependency(topology, '[1.10.0,3.0.0)')
+                _op.params['sslEnabled'] =  _op.expression('false')
+
+        return streamsx.topology.topology.Sink(_op)
+
+
+class WriteParquet(streamsx.topology.composite.ForEach):
+    """Create objects in parquet format.
+
+    Adds a COS-Writer where each tuple on `stream` is
+    written into an object in parquet format.
+
+    Example of creating objects in parquet format from a stream named 'js' in JSON format::
+
+        import streamsx.objectstorage as cos
+        ...
+        # JSON to tuple
+        to_cos = js.map(schema='tuple<rstring a, int32 b>')
+        to_cos.for_each(cos.write(bucket=bucket, endpoint=endpoint, object='/parquet/sample/hw%OBJECTNUM.parquet'))
+
+    .. versionadded:: 1.5
+
+    Attributes
+    ----------
+    bucket : str
+        Bucket name. Bucket must have been created in your Cloud Object Storage service before using this class.
+    endpoint : str
+        Endpoint for Cloud Object Storage. Select the endpoint for your bucket location and resiliency: `IBM® Cloud Object Storage Endpoints <https://console.bluemix.net/docs/services/cloud-object-storage/basics/endpoints.html>`_. Use a private enpoint when running in IBM cloud Streaming Analytics service.
+    object : str
+        Name of the object to be created in your bucket. For example, ``SAMPLE_%OBJECTNUM.text``, %OBJECTNUM is an object number, starting at 0. When a new object is opened for writing the number is incremented.
+    time_per_object : int|float|datetime.timedelta
+        Specifies the approximate time, in seconds, after which the current output object is closed and a new object is opened for writing.
+    credentials : str|dict
+        Credentials in JSON or name of the application configuration containing the credentials for Cloud Object Storage. When set to ``None`` the application configuration ``cos`` is used.
+    options : kwargs
+        The additional optional parameters as variable keyword arguments.
+
+    Returns:
+        :py:class:`topology_ref:streamsx.topology.topology.Sink`: Stream termination.
+    """
+    def __init__(self, bucket, endpoint, object, time_per_object=10.0, credentials=None, **options):
+        self.bucket = bucket
+        self.endpoint = endpoint
+        self.object = object
+        self.credentials = credentials
+        self.time_per_object = time_per_object
+        self.ssl_enabled = None
+        self.vm_arg = None
+        if 'header' in options:
+            self.header = options.get('header')
+        if 'ssl_enabled' in options:
+            self.ssl_enabled = options.get('ssl_enabled')
+        if 'vm_arg' in options:
+            self.vm_arg = options.get('vm_arg')
+
+    @property
+    def vm_arg(self):
+        """
+            str: Arbitrary JVM arguments can be passed. For example, increase JVM's maximum heap size ``'-Xmx 8192m'``.
+        """
+        return self._vm_arg
+
+    @vm_arg.setter
+    def vm_arg(self, value):
+        self._vm_arg = value
+
+    @property
+    def ssl_enabled(self):
+        """
+            bool: Set to ``False`` if you want to use HTTP instead of HTTPS. Per default SSL is enabled and HTTPS is used.
+        """
+        return self._ssl_enabled
+
+    @ssl_enabled.setter
+    def ssl_enabled(self, value):
+        self._ssl_enabled = value
+
+    def populate(self, topology, stream, name, **options) -> streamsx.topology.topology.Sink:
+        app_config_name = self.credentials
+        # check if it's the credentials for the service
+        if isinstance(self.credentials, dict):
+            app_config_name = None
+
+        _op = _ObjectStorageSink(stream, objectName = self.object, endpoint = self.endpoint, appConfigName = app_config_name, vmArg = self.vm_arg, name = name)
+        _op.params['storageFormat'] = 'parquet'
+        _op.params['parquetCompression'] = 'SNAPPY'
+        _op.params['parquetEnableDict'] = _op.expression('true')
+        _op.params['objectStorageURI'] = 's3a://'+self.bucket
+        _op.params['timePerObject'] = streamsx.spl.types.float64(_check_time_per_object(self.time_per_object))
+
+        if isinstance(self.credentials, dict):
+            access_key_id, secret_access_key = _read_hmac_credentials(self.credentials)
+            if access_key_id is not None and secret_access_key is not None:
+                _op.params['objectStorageUser'] = access_key_id
+                _op.params['objectStoragePassword'] = secret_access_key
+            else:
+                _op.params['credentials'] = json.dumps(self.credentials)
+
+        if self.ssl_enabled is not None:
+            if self.ssl_enabled is False:
+                _add_toolkit_dependency(topology, '[1.10.0,3.0.0)')
+                _op.params['sslEnabled'] =  _op.expression('false')
+
+        return streamsx.topology.topology.Sink(_op)
+
+
 def scan(topology, bucket, endpoint, pattern='.*', directory='/', credentials=None, ssl_enabled=None, vm_arg=None, name=None):
     """Scan a directory in a bucket for object names.
 
@@ -150,6 +547,10 @@ def scan(topology, bucket, endpoint, pattern='.*', directory='/', credentials=No
 
     Returns:
         Stream: Object names stream with schema ``CommonSchema.String``.
+
+
+    .. deprecated:: 1.5.0
+        Use the :py:class:`~Scan`.
     """
 
     appConfigName=credentials
@@ -198,6 +599,10 @@ def read(stream, bucket, endpoint, credentials=None, ssl_enabled=None, vm_arg=No
 
     Returns:
         :py:class:`topology_ref:streamsx.topology.topology.Stream`: Object content line by line with schema ``CommonSchema.String``.
+
+
+    .. deprecated:: 1.5.0
+        Use the :py:class:`~Read`.
     """
 
     appConfigName=credentials
@@ -251,6 +656,10 @@ def write(stream, bucket, endpoint, object, time_per_object=10.0, header=None, c
 
     Returns:
         :py:class:`topology_ref:streamsx.topology.topology.Sink`: Stream termination.
+
+
+    .. deprecated:: 1.5.0
+        Use the :py:class:`~Write`.
     """
 
     appConfigName=credentials
@@ -309,6 +718,10 @@ def write_parquet(stream, bucket, endpoint, object, time_per_object=10.0, creden
 
     Returns:
         :py:class:`topology_ref:streamsx.topology.topology.Sink`: Stream termination.
+
+
+    .. deprecated:: 1.5.0
+        Use the :py:class:`~WriteParquet`.
     """
 
     appConfigName=credentials
