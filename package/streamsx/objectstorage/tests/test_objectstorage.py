@@ -62,6 +62,56 @@ class TestParams(TestCase):
         print(' (TOOLKIT):' + str(result))
 
 
+class TestComposite(TestCase):
+
+    @classmethod
+    def setUpClass(self):
+        self.bucket = os.environ["COS_BUCKET"]
+        self.endpoint=os.environ["COS_ENDPOINT"]
+
+    def setUp(self):
+        Tester.setup_distributed(self)
+        self.objectstorage_toolkit_home = os.environ["COS_TOOLKIT_HOME"]
+        self.test_config[streamsx.topology.context.ConfigParams.SSL_VERIFY] = False 
+
+    def test_basic_composite(self):
+        print ('\n---------'+str(self))
+        name = 'test_basic_composite'
+        topo = Topology(name)
+        if self.objectstorage_toolkit_home is not None:
+            streamsx.spl.toolkit.add_toolkit(topo, self.objectstorage_toolkit_home)
+        to_cos = topo.source(['Hello', 'World!'])
+        to_cos = to_cos.as_string()
+        to_cos.for_each(objectstorage.Write(self.bucket, self.endpoint, '/sample/hw%OBJECTNUM.txt'))
+
+        scanned = topo.source(objectstorage.Scan(bucket=self.bucket, endpoint=self.endpoint, directory='/sample'))
+        r = scanned.map(objectstorage.Read(bucket=self.bucket, endpoint=self.endpoint))
+        r.print()
+
+        tester = Tester(topo)
+        tester.run_for(60)
+        tester.tuple_count(r, 2, exact=False)
+        tester.test(self.test_ctxtype, self.test_config, always_collect_logs=True)
+
+    def test_parquet_composite(self):
+        print ('\n---------'+str(self))
+        name = 'test_parquet_composite'
+        topo = Topology(name)
+        if self.objectstorage_toolkit_home is not None:
+            streamsx.spl.toolkit.add_toolkit(topo, self.objectstorage_toolkit_home)
+        to_cos = topo.source(['Hello', 'World!'])
+        to_cos = to_cos.as_string()
+        to_cos.for_each(objectstorage.WriteParquet(self.bucket, self.endpoint, 'test%OBJECTNUM.parquet', time_per_object=5))
+        
+        scanned_objects = topo.source(objectstorage.Scan(self.bucket, self.endpoint, 'test0.parquet'))
+        scanned_objects.print()
+
+        tester = Tester(topo)
+        tester.run_for(60)
+        tester.tuple_count(scanned_objects, 1, exact=False)
+        tester.test(self.test_ctxtype, self.test_config, always_collect_logs=True)
+
+
 class TestCOS(TestCase):
 
     @classmethod
