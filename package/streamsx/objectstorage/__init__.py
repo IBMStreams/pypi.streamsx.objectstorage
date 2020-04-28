@@ -21,7 +21,7 @@ Credentials
 Select one of the following options to define your Cloud Object Storage credentials:
 
 * Streams `application configuration <https://ibmstreams.github.io/streamsx.objectstorage/doc/spldoc/html/tk$com.ibm.streamsx.objectstorage/op$com.ibm.streamsx.objectstorage$ObjectStorageScan$4.html>`_
-* Setting the Cloud Object Storage service credentials JSON directly to the ``credentials`` `parameter <https://ibmstreams.github.io/streamsx.objectstorage/doc/spldoc/html/tk$com.ibm.streamsx.objectstorage/op$com.ibm.streamsx.objectstorage$ObjectStorageScan$3.html>`_ of the functions.
+* Setting the Cloud Object Storage service credentials JSON as dict to the ``credentials`` `parameter <https://ibmstreams.github.io/streamsx.objectstorage/doc/spldoc/html/tk$com.ibm.streamsx.objectstorage/op$com.ibm.streamsx.objectstorage$ObjectStorageScan$3.html>`_ of the functions.
 
 By default an application configuration named `cos` is used,
 a different configuration name can be specified using the ``credentials``
@@ -60,7 +60,7 @@ With these setting above it is recommended to use the private endpoint for the U
 
 Find the list of endpoints and the endpoint description here: `IBM® Cloud Object Storage Endpoints <https://console.bluemix.net/docs/services/cloud-object-storage/basics/endpoints.html>`_
 
-To access any other Amazon S3 compatible object storage server you need set the ``endpoint`` parameter, for example the MinIO server running at `<https://play.min.io:9000>`_::
+To access any other Amazon S3 compatible object storage server you need set the ``endpoint`` parameter, for example the MinIO server running at `<https://play.min.io:9000>`_ needs a value for the endpoint parameter like below::
 
     endpoint='play.min.io:9000'
 
@@ -84,14 +84,16 @@ an object. Scan for created object and read the content::
     bucket = 'streamsx-py-sample'
     # US-South region private endpoint
     endpoint='s3.private.us-south.cloud-object-storage.appdomain.cloud'
+    # provide COS credentials as dict
+    credentials = json.loads(your_cos_json)
     
     # Write a stream to COS
-    to_cos.for_each(cos.write(bucket, endpoint, '/sample/hw%OBJECTNUM.txt'))
+    to_cos.for_each(cos.Write(bucket=bucket, endpoint=endpoint, object='/sample/hw%OBJECTNUM.txt', credentials=credentials))
 
-    scanned = topo.source(cos.scan(bucket=bucket, endpoint=endpoint, directory='/sample'))
-    
+    scanned = topo.source(cos.Scan(bucket=bucket, endpoint=endpoint, directory='/sample', credentials=credentials))
+         
     # read text file line by line
-    r = scanned.map(cos.read(bucket=bucket, endpoint=endpoint))
+    r = scanned.map(cos.Read(bucket=bucket, endpoint=endpoint, credentials=credentials))
     
     # print each line (tuple)
     r.print()
@@ -102,7 +104,7 @@ an object. Scan for created object and read the content::
 
 """
 
-__version__='1.5.0'
+__version__='1.5.1'
 
 __all__ = ['Scan', 'Read', 'Write', 'WriteParquet', 'download_toolkit', 'configure_connection', 'scan', 'read', 'write', 'write_parquet']
 from streamsx.objectstorage._objectstorage import Scan, Read, Write, WriteParquet, download_toolkit, configure_connection, scan, read, write, write_parquet
