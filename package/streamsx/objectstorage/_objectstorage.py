@@ -35,7 +35,7 @@ def configure_connection(instance, name='cos', credentials=None):
         from icpd_core import icpd_util
         import streamsx.objectstorage as cos
 
-        cfg = icpd_util.get_service_instance_details(name='your-streams-instance')
+        cfg = icpd_util.get_service_instance_details(name='your-streams-instance', instance_type='streams')
         cfg[streamsx.topology.context.ConfigParams.SSL_VERIFY] = False
         instance = Instance.of_service(cfg)
         app_cfg = cos.configure_connection(instance, credentials='my_credentials_json')
@@ -152,7 +152,7 @@ class Scan(streamsx.topology.composite.Source):
     directory : str
         Specifies the name of the directory to be scanned. Any subdirectories are not scanned.
     credentials : str|dict
-        Credentials in JSON or name of the application configuration containing the credentials for Cloud Object Storage. When set to ``None`` the application configuration ``cos`` is used.
+        Credentials as dict or name of the application configuration containing the credentials for Cloud Object Storage. When set to ``None`` the application configuration ``cos`` is used.
     options : kwargs
         The additional optional parameters as variable keyword arguments.
 
@@ -242,7 +242,7 @@ class Read(streamsx.topology.composite.Map):
     endpoint : str
         Endpoint for Cloud Object Storage. Select the endpoint for your bucket location and resiliency: `IBM® Cloud Object Storage Endpoints <https://console.bluemix.net/docs/services/cloud-object-storage/basics/endpoints.html>`_. Use a private enpoint when running in IBM cloud Streaming Analytics service.
     credentials : str|dict
-        Credentials in JSON or name of the application configuration containing the credentials for Cloud Object Storage. When set to ``None`` the application configuration ``cos`` is used.
+        Credentials as dict or name of the application configuration containing the credentials for Cloud Object Storage. When set to ``None`` the application configuration ``cos`` is used.
     options : kwargs
         The additional optional parameters as variable keyword arguments.
 
@@ -337,7 +337,7 @@ class Write(streamsx.topology.composite.ForEach):
     time_per_object : int|float|datetime.timedelta
         Specifies the approximate time, in seconds, after which the current output object is closed and a new object is opened for writing.
     credentials : str|dict
-        Credentials in JSON or name of the application configuration containing the credentials for Cloud Object Storage. When set to ``None`` the application configuration ``cos`` is used.
+        Credentials as dict or name of the application configuration containing the credentials for Cloud Object Storage. When set to ``None`` the application configuration ``cos`` is used.
     options : kwargs
         The additional optional parameters as variable keyword arguments.
 
@@ -450,7 +450,7 @@ class WriteParquet(streamsx.topology.composite.ForEach):
     time_per_object : int|float|datetime.timedelta
         Specifies the approximate time, in seconds, after which the current output object is closed and a new object is opened for writing.
     credentials : str|dict
-        Credentials in JSON or name of the application configuration containing the credentials for Cloud Object Storage. When set to ``None`` the application configuration ``cos`` is used.
+        Credentials as dict or name of the application configuration containing the credentials for Cloud Object Storage. When set to ``None`` the application configuration ``cos`` is used.
     options : kwargs
         The additional optional parameters as variable keyword arguments.
 
@@ -540,7 +540,7 @@ def scan(topology, bucket, endpoint, pattern='.*', directory='/', credentials=No
         endpoint(str): Endpoint for Cloud Object Storage. Select the endpoint for your bucket location and resiliency: `IBM® Cloud Object Storage Endpoints <https://console.bluemix.net/docs/services/cloud-object-storage/basics/endpoints.html>`_. Use a private enpoint when running in IBM cloud Streaming Analytics service.
         pattern(str): Limits the object names that are listed to the names that match the specified regular expression.
         directory(str): Specifies the name of the directory to be scanned. Any subdirectories are not scanned.
-        credentials(str|dict): Credentials in JSON or name of the application configuration containing the credentials for Cloud Object Storage. When set to ``None`` the application configuration ``cos`` is used.
+        credentials(str|dict): Credentials as dict or name of the application configuration containing the credentials for Cloud Object Storage. When set to ``None`` the application configuration ``cos`` is used.
         ssl_enabled(bool): Set to ``False`` if you want to use HTTP instead of HTTPS. Per default SSL is enabled and HTTPS is used.
         vm_arg(str): Arbitrary JVM arguments can be passed. For example, increase JVM's maximum heap size ``'-Xmx 8192m'``.     
         name(str): Sink name in the Streams context, defaults to a generated name.
@@ -592,7 +592,7 @@ def read(stream, bucket, endpoint, credentials=None, ssl_enabled=None, vm_arg=No
         stream(streamsx.topology.topology.Stream): Stream of tuples with object names to be read. Expects ``CommonSchema.String`` in the input stream.
         bucket(str): Bucket name. Bucket must have been created in your Cloud Object Storage service before using this function.
         endpoint(str): Endpoint for Cloud Object Storage. Select the endpoint for your bucket location and resiliency: `IBM® Cloud Object Storage Endpoints <https://console.bluemix.net/docs/services/cloud-object-storage/basics/endpoints.html>`_. Use a private enpoint when running in IBM cloud Streaming Analytics service.
-        credentials(str|dict): Credentials in JSON or name of the application configuration containing the credentials for Cloud Object Storage. When set to ``None`` the application configuration ``cos`` is used.
+        credentials(str|dict): Credentials as dict or name of the application configuration containing the credentials for Cloud Object Storage. When set to ``None`` the application configuration ``cos`` is used.
         ssl_enabled(bool): Set to ``False`` if you want to use HTTP instead of HTTPS. Per default SSL is enabled and HTTPS is used.
         vm_arg(str): Arbitrary JVM arguments can be passed. For example, increase JVM's maximum heap size ``'-Xmx 8192m'``.        
         name(str): Sink name in the Streams context, defaults to a generated name.
@@ -649,7 +649,7 @@ def write(stream, bucket, endpoint, object, time_per_object=10.0, header=None, c
         object(str): Name of the object to be created in your bucket. For example, ``SAMPLE_%OBJECTNUM.text``, %OBJECTNUM is an object number, starting at 0. When a new object is opened for writing the number is incremented.
         time_per_object(int|float|datetime.timedelta): Specifies the approximate time, in seconds, after which the current output object is closed and a new object is opened for writing.
         header(str): Specify the content of the header row. This header is added as first line in the object. Use this parameter when writing strings in CSV format and you like to query the objects with the IBM SQL Query service. By default no header row is generated.
-        credentials(str|dict): Credentials in JSON or name of the application configuration containing the credentials for Cloud Object Storage. When set to ``None`` the application configuration ``cos`` is used.
+        credentials(str|dict): Credentials as dict or name of the application configuration containing the credentials for Cloud Object Storage. When set to ``None`` the application configuration ``cos`` is used.
         ssl_enabled(bool): Set to ``False`` if you want to use HTTP instead of HTTPS. Per default SSL is enabled and HTTPS is used.
         vm_arg(str): Arbitrary JVM arguments can be passed. For example, increase JVM's maximum heap size ``'-Xmx 8192m'``.
         name(str): Sink name in the Streams context, defaults to a generated name.
@@ -711,7 +711,7 @@ def write_parquet(stream, bucket, endpoint, object, time_per_object=10.0, creden
         endpoint(str): Endpoint for Cloud Object Storage. Select the endpoint for your bucket location and resiliency: `IBM® Cloud Object Storage Endpoints <https://console.bluemix.net/docs/services/cloud-object-storage/basics/endpoints.html>`_. Use a private enpoint when running in IBM cloud Streaming Analytics service.
         object(str): Name of the object to be created in your bucket. For example, ``SAMPLE_%OBJECTNUM.parquet``, %OBJECTNUM is an object number, starting at 0. When a new object is opened for writing the number is incremented.
         time_per_object(int|float|datetime.timedelta): Specifies the approximate time, in seconds, after which the current output object is closed and a new object is opened for writing.
-        credentials(str|dict): Credentials in JSON or name of the application configuration containing the credentials for Cloud Object Storage. When set to ``None`` the application configuration ``cos`` is used.
+        credentials(str|dict): Credentials as dict or name of the application configuration containing the credentials for Cloud Object Storage. When set to ``None`` the application configuration ``cos`` is used.
         ssl_enabled(bool): Set to ``False`` if you want to use HTTP instead of HTTPS. Per default SSL is enabled and HTTPS is used.
         vm_arg(str): Arbitrary JVM arguments can be passed. For example, increase JVM's maximum heap size ``'-Xmx 8192m'``.
         name(str): Sink name in the Streams context, defaults to a generated name.
