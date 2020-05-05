@@ -135,16 +135,16 @@ class TestDistributed(TestCase):
             credentials = json.load(data_file)
         return credentials
 
-    def _run_tester_app(self, name, dir, credentials):
+    def _run_tester_app(self, name, dir, credentials, protocol='cos'):
         topo = Topology(name)
         if self.objectstorage_toolkit_home is not None:
             streamsx.spl.toolkit.add_toolkit(topo, self.objectstorage_toolkit_home)
         to_cos = topo.source(['Hello', 'World!'])
         to_cos = to_cos.as_string()
-        to_cos.for_each(objectstorage.Write(self.bucket, self.endpoint, dir+'/hw%OBJECTNUM.txt', credentials=credentials))
+        to_cos.for_each(objectstorage.Write(self.bucket, self.endpoint, dir+'/hw%OBJECTNUM.txt', credentials=credentials, protocol=protocol))
 
-        scanned = topo.source(objectstorage.Scan(bucket=self.bucket, endpoint=self.endpoint, directory=dir, credentials=credentials))
-        r = scanned.map(objectstorage.Read(bucket=self.bucket, endpoint=self.endpoint, credentials=credentials))
+        scanned = topo.source(objectstorage.Scan(bucket=self.bucket, endpoint=self.endpoint, directory=dir, credentials=credentials, protocol=protocol))
+        r = scanned.map(objectstorage.Read(bucket=self.bucket, endpoint=self.endpoint, credentials=credentials, protocol=protocol))
         r.print()
 
         tester = Tester(topo)
@@ -198,7 +198,7 @@ class TestDistributed(TestCase):
         name = 'test_credentials_hmac'
         credentials=self._get_hmac_credentials()
         rnd=''.join(random.choice(string.digits) for _ in range(10))
-        self._run_tester_app(name, '/sample'+rnd, credentials)
+        self._run_tester_app(name, '/sample'+rnd, credentials, protocol='s3a')
 
     @unittest.skipUnless(_cos_iam_env_var(), "COS_IAM_CREDENTIALS required")
     def test_parquet_composite(self):
@@ -210,9 +210,9 @@ class TestDistributed(TestCase):
             streamsx.spl.toolkit.add_toolkit(topo, self.objectstorage_toolkit_home)
         to_cos = topo.source(['Hello', 'World!'])
         to_cos = to_cos.as_string()
-        to_cos.for_each(objectstorage.WriteParquet(self.bucket, self.endpoint, 'testc%OBJECTNUM.parquet', time_per_object=5, credentials=credentials))
+        to_cos.for_each(objectstorage.WriteParquet(self.bucket, self.endpoint, 'testc%OBJECTNUM.parquet', time_per_object=5, credentials=credentials, protocol='s3a'))
         
-        scanned_objects = topo.source(objectstorage.Scan(self.bucket, self.endpoint, 'testc0.parquet', credentials=credentials))
+        scanned_objects = topo.source(objectstorage.Scan(self.bucket, self.endpoint, 'testc0.parquet', credentials=credentials, protocol='s3a'))
         scanned_objects.print()
 
         tester = Tester(topo)
