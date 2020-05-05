@@ -153,6 +153,8 @@ class Scan(streamsx.topology.composite.Source):
         Specifies the name of the directory to be scanned. Any subdirectories are not scanned.
     credentials : str|dict
         Credentials as dict or name of the application configuration containing the credentials for Cloud Object Storage. When set to ``None`` the application configuration ``cos`` is used.
+    protocol: str
+        Protocol used by the S3 client, either ``cos`` (IAM and HMAC authentication supported) or  ``s3a`` (requires HMAC authentication). Protocol ``s3a`` supports multipart upload. `Protocol selection <https://ibmstreams.github.io/streamsx.objectstorage/doc/spldoc/html/tk$com.ibm.streamsx.objectstorage/tk$com.ibm.streamsx.objectstorage$19.html>`_
     options : kwargs
         The additional optional parameters as variable keyword arguments.
 
@@ -160,12 +162,16 @@ class Scan(streamsx.topology.composite.Source):
         Stream: Object names stream with schema ``CommonSchema.String``.
     """
 
-    def __init__(self, bucket, endpoint, pattern='.*', directory='/', credentials=None, **options):
+    def __init__(self, bucket, endpoint, pattern='.*', directory='/', credentials=None, protocol='cos', **options):
         self.bucket = bucket
         self.endpoint = endpoint
         self.pattern = pattern
         self.directory = directory
         self.credentials = credentials
+        if (protocol != 'cos' and protocol != 's3a'):
+            raise ValueError("Set 'cos' or 's3a' for the protocol parameter.")
+        else:
+            self.protocol = protocol
 
         self.ssl_enabled = None
         self.vm_arg = None
@@ -204,7 +210,7 @@ class Scan(streamsx.topology.composite.Source):
             app_config_name = None
 
         _op = _ObjectStorageScan(topology, CommonSchema.String, pattern = self.pattern, directory = self.directory, endpoint = self.endpoint, appConfigName = app_config_name, vmArg = self.vm_arg, name = name)
-        _op.params['objectStorageURI'] = 's3a://'+self.bucket
+        _op.params['objectStorageURI'] = self.protocol+'://'+self.bucket
 
         if isinstance(self.credentials, dict):
             access_key_id, secret_access_key = _read_hmac_credentials(self.credentials)
@@ -243,16 +249,22 @@ class Read(streamsx.topology.composite.Map):
         Endpoint for Cloud Object Storage. Select the endpoint for your bucket location and resiliency: `IBM® Cloud Object Storage Endpoints <https://console.bluemix.net/docs/services/cloud-object-storage/basics/endpoints.html>`_. Use a private enpoint when running in IBM cloud Streaming Analytics service.
     credentials : str|dict
         Credentials as dict or name of the application configuration containing the credentials for Cloud Object Storage. When set to ``None`` the application configuration ``cos`` is used.
+    protocol: str
+        Protocol used by the S3 client, either ``cos`` (IAM and HMAC authentication supported) or  ``s3a`` (requires HMAC authentication). Protocol ``s3a`` supports multipart upload. `Protocol selection <https://ibmstreams.github.io/streamsx.objectstorage/doc/spldoc/html/tk$com.ibm.streamsx.objectstorage/tk$com.ibm.streamsx.objectstorage$19.html>`_
     options : kwargs
         The additional optional parameters as variable keyword arguments.
 
     Returns:
         :py:class:`topology_ref:streamsx.topology.topology.Stream`: Object content line by line with schema ``CommonSchema.String``.
     """
-    def __init__(self, bucket, endpoint, credentials=None, **options):
+    def __init__(self, bucket, endpoint, credentials=None, protocol='cos', **options):
         self.bucket = bucket
         self.endpoint = endpoint
         self.credentials = credentials
+        if (protocol != 'cos' and protocol != 's3a'):
+            raise ValueError("Set 'cos' or 's3a' for the protocol parameter.")
+        else:
+            self.protocol = protocol
 
         self.ssl_enabled = None
         self.vm_arg = None
@@ -291,7 +303,7 @@ class Read(streamsx.topology.composite.Map):
             app_config_name = None
 
         _op = _ObjectStorageSource(stream, CommonSchema.String, endpoint = self.endpoint, appConfigName = app_config_name, vmArg = self.vm_arg, name = name)
-        _op.params['objectStorageURI'] = 's3a://'+self.bucket
+        _op.params['objectStorageURI'] = self.protocol+'://'+self.bucket
 
         if isinstance(self.credentials, dict):
             access_key_id, secret_access_key = _read_hmac_credentials(self.credentials)
@@ -338,17 +350,23 @@ class Write(streamsx.topology.composite.ForEach):
         Specifies the approximate time, in seconds, after which the current output object is closed and a new object is opened for writing.
     credentials : str|dict
         Credentials as dict or name of the application configuration containing the credentials for Cloud Object Storage. When set to ``None`` the application configuration ``cos`` is used.
+    protocol: str
+        Protocol used by the S3 client, either ``cos`` (IAM and HMAC authentication supported) or  ``s3a`` (requires HMAC authentication). Protocol ``s3a`` supports multipart upload. `Protocol selection <https://ibmstreams.github.io/streamsx.objectstorage/doc/spldoc/html/tk$com.ibm.streamsx.objectstorage/tk$com.ibm.streamsx.objectstorage$19.html>`_
     options : kwargs
         The additional optional parameters as variable keyword arguments.
 
     Returns:
         :py:class:`topology_ref:streamsx.topology.topology.Sink`: Stream termination.
     """
-    def __init__(self, bucket, endpoint, object, time_per_object=10.0, credentials=None, **options):
+    def __init__(self, bucket, endpoint, object, time_per_object=10.0, credentials=None, protocol='cos', **options):
         self.bucket = bucket
         self.endpoint = endpoint
         self.object = object
         self.credentials = credentials
+        if (protocol != 'cos' and protocol != 's3a'):
+            raise ValueError("Set 'cos' or 's3a' for the protocol parameter.")
+        else:
+            self.protocol = protocol
         self.time_per_object = time_per_object
         self.header = None
         self.ssl_enabled = None
@@ -401,7 +419,7 @@ class Write(streamsx.topology.composite.ForEach):
 
         _op = _ObjectStorageSink(stream, objectName = self.object, endpoint = self.endpoint, appConfigName = app_config_name, vmArg = self.vm_arg, name = name)
         _op.params['storageFormat'] = 'raw'
-        _op.params['objectStorageURI'] = 's3a://'+self.bucket
+        _op.params['objectStorageURI'] = self.protocol+'://'+self.bucket
         _op.params['timePerObject'] = streamsx.spl.types.float64(_check_time_per_object(self.time_per_object))
 
         if self.header is not None:
@@ -451,17 +469,23 @@ class WriteParquet(streamsx.topology.composite.ForEach):
         Specifies the approximate time, in seconds, after which the current output object is closed and a new object is opened for writing.
     credentials : str|dict
         Credentials as dict or name of the application configuration containing the credentials for Cloud Object Storage. When set to ``None`` the application configuration ``cos`` is used.
+    protocol: str
+        Protocol used by the S3 client, either ``cos`` (IAM and HMAC authentication supported) or  ``s3a`` (requires HMAC authentication). Protocol ``s3a`` supports multipart upload. `Protocol selection <https://ibmstreams.github.io/streamsx.objectstorage/doc/spldoc/html/tk$com.ibm.streamsx.objectstorage/tk$com.ibm.streamsx.objectstorage$19.html>`_
     options : kwargs
         The additional optional parameters as variable keyword arguments.
 
     Returns:
         :py:class:`topology_ref:streamsx.topology.topology.Sink`: Stream termination.
     """
-    def __init__(self, bucket, endpoint, object, time_per_object=10.0, credentials=None, **options):
+    def __init__(self, bucket, endpoint, object, time_per_object=10.0, credentials=None, protocol='cos', **options):
         self.bucket = bucket
         self.endpoint = endpoint
         self.object = object
         self.credentials = credentials
+        if (protocol != 'cos' and protocol != 's3a'):
+            raise ValueError("Set 'cos' or 's3a' for the protocol parameter.")
+        else:
+            self.protocol = protocol
         self.time_per_object = time_per_object
         self.ssl_enabled = None
         self.vm_arg = None
@@ -504,7 +528,7 @@ class WriteParquet(streamsx.topology.composite.ForEach):
         _op.params['storageFormat'] = 'parquet'
         _op.params['parquetCompression'] = 'SNAPPY'
         _op.params['parquetEnableDict'] = _op.expression('true')
-        _op.params['objectStorageURI'] = 's3a://'+self.bucket
+        _op.params['objectStorageURI'] = self.protocol+'://'+self.bucket
         _op.params['timePerObject'] = streamsx.spl.types.float64(_check_time_per_object(self.time_per_object))
 
         if isinstance(self.credentials, dict):
@@ -559,7 +583,7 @@ def scan(topology, bucket, endpoint, pattern='.*', directory='/', credentials=No
          appConfigName = None
 
     _op = _ObjectStorageScan(topology, CommonSchema.String, pattern=pattern, directory=directory, endpoint=endpoint, appConfigName=appConfigName, vmArg=vm_arg, name=name)
-    _op.params['objectStorageURI'] = 's3a://'+bucket
+    _op.params['objectStorageURI'] = 'cos://'+bucket
 
     if isinstance(credentials, dict):
         access_key_id, secret_access_key = _read_hmac_credentials(credentials)
@@ -611,7 +635,7 @@ def read(stream, bucket, endpoint, credentials=None, ssl_enabled=None, vm_arg=No
          appConfigName = None
 
     _op = _ObjectStorageSource(stream, CommonSchema.String, endpoint=endpoint, appConfigName=appConfigName, vmArg=vm_arg, name=name)
-    _op.params['objectStorageURI'] = 's3a://'+bucket
+    _op.params['objectStorageURI'] = 'cos://'+bucket
 
     if isinstance(credentials, dict):
         access_key_id, secret_access_key = _read_hmac_credentials(credentials)
@@ -669,7 +693,7 @@ def write(stream, bucket, endpoint, object, time_per_object=10.0, header=None, c
 
     _op = _ObjectStorageSink(stream, objectName=object, endpoint=endpoint, appConfigName=appConfigName, vmArg=vm_arg, name=name)
     _op.params['storageFormat'] = 'raw'
-    _op.params['objectStorageURI'] = 's3a://'+bucket
+    _op.params['objectStorageURI'] = 'cos://'+bucket
     _op.params['timePerObject'] = streamsx.spl.types.float64(_check_time_per_object(time_per_object))
 
     if header is not None:
@@ -733,7 +757,7 @@ def write_parquet(stream, bucket, endpoint, object, time_per_object=10.0, creden
     _op.params['storageFormat'] = 'parquet'
     _op.params['parquetCompression'] = 'SNAPPY'
     _op.params['parquetEnableDict'] = _op.expression('true')
-    _op.params['objectStorageURI'] = 's3a://'+bucket
+    _op.params['objectStorageURI'] = 'cos://'+bucket
     _op.params['timePerObject'] = streamsx.spl.types.float64(_check_time_per_object(time_per_object))
     if isinstance(credentials, dict):
         access_key_id, secret_access_key = _read_hmac_credentials(credentials)
