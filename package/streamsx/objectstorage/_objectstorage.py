@@ -29,10 +29,8 @@ def configure_connection(instance, name='cos', credentials=None):
 
     Example for creating a configuration for a Streams instance with connection details::
 
-
-        streamsx.rest import Instance
-        import streamsx.topology.context
         from icpd_core import icpd_util
+        from streamsx.rest_primitives import Instance
         import streamsx.objectstorage as cos
 
         cfg = icpd_util.get_service_instance_details(name='your-streams-instance', instance_type='streams')
